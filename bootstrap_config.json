@@ -1,0 +1,51 @@
+{
+  "updates": {
+    "enabled": false,
+    "latestVersion": "0.1",
+    "mandatory": false,
+    "title": "⚡ Anti-Detect Studio v0.1",
+    "changelog": "• Official macOS Release\n• 100% Anti-detection shield active",
+    "downloadUrl": "",
+    "buttonText": "Up to Date",
+    "assetUrl": "",
+    "sha256": "",
+    "size": 0
+  },
+  "telemetry": {
+    "enabled": false,
+    "endpointUrl": "https://user-ananlytics-default-rtdb.firebaseio.com",
+    "pingInterval": 60
+  },
+  "banner": {
+    "enabled": false,
+    "badge": "",
+    "title": "",
+    "description": "",
+    "buttonText": "",
+    "linkUrl": "",
+    "imageUrl": ""
+  },
+  "popup": {
+    "enabled": false,
+    "id": "popup_1789192897840",
+    "badge": "ANNOUNCEMENT",
+    "title": "Special Announcement",
+    "message": "Stay tuned for upcoming proxy server releases and features.",
+    "buttonText": "Learn More",
+    "linkUrl": "",
+    "imageUrl": "",
+    "showOncePerSession": true
+  },
+  "donation": {
+    "enabled": false,
+    "title": "Support Anti-Detect Studio",
+    "subtitle": "Help us keep this tool 100% free, updated, and maintain high-speed cloud runners.",
+    "usdtBep20": "0x3e8eec2f6c5618f9cf3c180d7632d46415b660e1",
+    "usdtTrc20": "TRrmgUiPdbHm1zJUNx6Meq3eJ5mi4aBvcf",
+    "coffeeUrl": "https://buymeacoffee.com/adbu",
+    "customNote": "Thank you for supporting continuous development and maintenance!",
+    "showUsdtTrc20": true,
+    "showUsdtBep20": true,
+    "showCoffee": true
+  }
+}

@@ -1,0 +1,22 @@
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Python cache & bytecode
+__pycache__/
+*.pyc
+!github_client.pyc
+*.pyo
+*.pyd
+
+# Build & package staging
+build/
+dmg_staging/
+dist/
+
+# OS and temporary logs
+.DS_Store
+Thumbs.db
+*.log
+tunnel.log

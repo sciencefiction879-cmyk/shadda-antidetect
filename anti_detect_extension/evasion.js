@@ -1,0 +1,800 @@
+/**
+ * Anti-Detect Fingerprint Defender (Comprehensive Multi-Realm Evasion Script)
+ * Neutralizes:
+ *  1. GPU & WebGL Information (Spoofed to match platform without leaks)
+ *  2. CPU Cores (hardwareConcurrency across Main Window, Iframes & Web Workers)
+ *  3. Device Memory (deviceMemory across all realms)
+ *  4. Screen Resolution (Standardized & coherent with device)
+ *  5. Canvas & AudioContext noise injection
+ *  6. Client Hints consistency
+ */
+(function() {
+  'use strict';
+  console.log("[Evasion] evasion.js active on:", location.href);
+
+  // Helper to make hooked functions appear 100% native
+  function makeNative(fn, name) {
+    try {
+      if (name) {
+        Object.defineProperty(fn, 'name', { value: name, configurable: true });
+      }
+      const nativeStr = `function ${name || fn.name || ''}() { [native code] }`;
+      fn.toString = function toString() { return nativeStr; };
+      Object.defineProperty(fn.toString, 'name', { value: 'toString', configurable: true });
+      fn.toString.toString = function toString() { return 'function toString() { [native code] }'; };
+    } catch(e) {}
+    return fn;
+  }
+
+  // Detect platform profile based on User-Agent
+  const ua = navigator.userAgent || "";
+  const isAndroid = /Android/i.test(ua);
+  const isIPhone = /iPhone|iPad/i.test(ua);
+  const isMac = /Macintosh|Mac OS X/i.test(ua) && !isIPhone;
+
+  let TARGET_CORES = 8;
+  let TARGET_MEMORY = 8;
+  let TARGET_GPU_VENDOR = "Google Inc. (NVIDIA)";
+  let TARGET_GPU_RENDERER = "ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 Direct3D11 vs_5_0 ps_5_0, D3D11)";
+  let SCREEN_W = 1920;
+  let SCREEN_H = 1080;
+  let SCREEN_AVAIL_H = 1040;
+  let TARGET_PLATFORM = "Win32";
+  let DEVICE_PIXEL_RATIO = 1.0;
+
+  if (isAndroid) {
+    if (/Nexus 5/i.test(ua)) {
+      TARGET_CORES = 4;
+      TARGET_MEMORY = 2;
+      TARGET_GPU_VENDOR = "Qualcomm";
+      TARGET_GPU_RENDERER = "Adreno (TM) 330";
+      SCREEN_W = 360;
+      SCREEN_H = 640;
+      SCREEN_AVAIL_H = 640;
+      TARGET_PLATFORM = "Linux armv7l";
+      DEVICE_PIXEL_RATIO = 3.0;
+    } else if (/Nexus 4/i.test(ua)) {
+      TARGET_CORES = 4;
+      TARGET_MEMORY = 2;
+      TARGET_GPU_VENDOR = "Qualcomm";
+      TARGET_GPU_RENDERER = "Adreno (TM) 320";
+      SCREEN_W = 384;
+      SCREEN_H = 640;
+      SCREEN_AVAIL_H = 640;
+      TARGET_PLATFORM = "Linux armv7l";
+      DEVICE_PIXEL_RATIO = 2.0;
+    } else if (/Nexus 7/i.test(ua)) {
+      if (/Chrome\/34/i.test(ua) || /2012/i.test(ua)) {
+        TARGET_CORES = 4;
+        TARGET_MEMORY = 1;
+        TARGET_GPU_VENDOR = "NVIDIA Corporation";
+        TARGET_GPU_RENDERER = "NVIDIA Tegra 3";
+        SCREEN_W = 600;
+        SCREEN_H = 960;
+        SCREEN_AVAIL_H = 960;
+        TARGET_PLATFORM = "Linux armv7l";
+        DEVICE_PIXEL_RATIO = 1.33;
+      } else {
+        TARGET_CORES = 4;
+        TARGET_MEMORY = 2;
+        TARGET_GPU_VENDOR = "Qualcomm";
+        TARGET_GPU_RENDERER = "Adreno (TM) 320";
+        SCREEN_W = 600;
+        SCREEN_H = 960;
+        SCREEN_AVAIL_H = 960;
+        TARGET_PLATFORM = "Linux armv7l";
+        DEVICE_PIXEL_RATIO = 2.0;
+      }
+    } else if (/Nexus 10/i.test(ua)) {
+      TARGET_CORES = 2;
+      TARGET_MEMORY = 2;
+      TARGET_GPU_VENDOR = "ARM";
+      TARGET_GPU_RENDERER = "Mali-T604";
+      SCREEN_W = 800;
+      SCREEN_H = 1280;
+      SCREEN_AVAIL_H = 1280;
+      TARGET_PLATFORM = "Linux armv7l";
+      DEVICE_PIXEL_RATIO = 2.0;
+    } else {
+      TARGET_CORES = 8;
+      TARGET_MEMORY = 8;
+      TARGET_GPU_VENDOR = "Google Inc. (Qualcomm)";
+      TARGET_GPU_RENDERER = "ANGLE (Qualcomm, Adreno (TM) 740, OpenGL ES 3.2)";
+      SCREEN_W = 412;
+      SCREEN_H = 915;
+      SCREEN_AVAIL_H = 915;
+      TARGET_PLATFORM = "Linux armv8l";
+      DEVICE_PIXEL_RATIO = 2.625;
+    }
+  } else if (isIPhone) {
+    TARGET_CORES = 6;
+    TARGET_MEMORY = undefined; // iOS Safari does not expose deviceMemory
+    TARGET_GPU_VENDOR = "Google Inc. (Apple)";
+    TARGET_GPU_RENDERER = "ANGLE (Apple, Apple GPU, OpenGL ES 3.0)";
+    SCREEN_W = 393;
+    SCREEN_H = 852;
+    SCREEN_AVAIL_H = 852;
+    TARGET_PLATFORM = "iPhone";
+    DEVICE_PIXEL_RATIO = 3.0;
+  } else if (isMac) {
+    TARGET_CORES = 8;
+    TARGET_MEMORY = 8;
+    TARGET_GPU_VENDOR = "Google Inc. (Apple)";
+    TARGET_GPU_RENDERER = "ANGLE (Apple, Apple M2 Pro, OpenGL ES 3.0)";
+    SCREEN_W = 1728;
+    SCREEN_H = 1117;
+    SCREEN_AVAIL_H = 1080;
+    TARGET_PLATFORM = "MacIntel";
+    DEVICE_PIXEL_RATIO = 2.0;
+  }
+
+  // Target Timezone (injected per-profile or default America/New_York)
+  let rawTz = "__PROFILE_TIMEZONE__";
+  const TARGET_TIMEZONE = (rawTz && !rawTz.startsWith("__")) ? rawTz : "America/New_York";
+  let rawIp = "__PROFILE_ALLOCATED_IP__";
+  const TARGET_IP = (rawIp && !rawIp.startsWith("__")) ? rawIp : "";
+  let rawSeed = "__PROFILE_SEED__";
+  const PROFILE_SEED = (rawSeed && !rawSeed.startsWith("__")) ? parseInt(rawSeed, 10) : 1;
+
+  const TARGET_TOUCH = (isAndroid || isIPhone) ? 5 : 0;
+
+  try {
+    console.log(`%c[🛡️ Anti-Detect Defender Active] Device: ${isAndroid ? 'Android' : (isIPhone ? 'iPhone' : 'Desktop')} | Platform: ${TARGET_PLATFORM} | GPU: ${TARGET_GPU_RENDERER} | CPU: ${TARGET_CORES} Cores | RAM: ${TARGET_MEMORY || 8}GB | TZ: ${TARGET_TIMEZONE} | IP: ${TARGET_IP || 'Direct'} | Screen: ${SCREEN_W}x${SCREEN_H} (DPR: ${DEVICE_PIXEL_RATIO})`, 'color: #10b981; font-weight: bold;');
+  } catch(e) {}
+
+  // Deterministic noise generator
+  function getNoiseValue(index) {
+    const x = Math.sin(index * 9999.1234) * 10000;
+    return x - Math.floor(x);
+  }
+
+  // ==========================================
+  // 1. HARDWARE & CPU/MEMORY PROTOTYPE SPOOFING
+  // ==========================================
+  function applyHardwareSpoofs(navObj, NavProto) {
+    try {
+      // hardwareConcurrency
+      const hcGetter = makeNative(function() {
+        return TARGET_CORES;
+      }, 'get hardwareConcurrency');
+
+      if (NavProto) {
+        Object.defineProperty(NavProto, 'hardwareConcurrency', {
+          get: hcGetter,
+          configurable: true,
+          enumerable: true
+        });
+      }
+      if (navObj) {
+        Object.defineProperty(navObj, 'hardwareConcurrency', {
+          get: hcGetter,
+          configurable: true,
+          enumerable: true
+        });
+      }
+
+      // deviceMemory
+      if (TARGET_MEMORY !== undefined) {
+        const dmGetter = makeNative(function() {
+          return TARGET_MEMORY;
+        }, 'get deviceMemory');
+
+        if (NavProto) {
+          Object.defineProperty(NavProto, 'deviceMemory', {
+            get: dmGetter,
+            configurable: true,
+            enumerable: true
+          });
+        }
+        if (navObj) {
+          Object.defineProperty(navObj, 'deviceMemory', {
+            get: dmGetter,
+            configurable: true,
+            enumerable: true
+          });
+        }
+      } else {
+        if (NavProto) delete NavProto.deviceMemory;
+        if (navObj) delete navObj.deviceMemory;
+      }
+
+      // platform spoofing (Android -> Linux armv8l, iPhone -> iPhone, Mac -> MacIntel, Windows -> Win32)
+      const platGetter = makeNative(function() { return TARGET_PLATFORM; }, 'get platform');
+      if (NavProto) {
+        Object.defineProperty(NavProto, 'platform', { get: platGetter, configurable: true, enumerable: true });
+      }
+      if (navObj) {
+        Object.defineProperty(navObj, 'platform', { get: platGetter, configurable: true, enumerable: true });
+      }
+
+      // maxTouchPoints for mobile
+      const touchGetter = makeNative(function() { return TARGET_TOUCH; }, 'get maxTouchPoints');
+      if (NavProto) {
+        Object.defineProperty(NavProto, 'maxTouchPoints', { get: touchGetter, configurable: true, enumerable: true });
+      }
+      if (navObj) {
+        Object.defineProperty(navObj, 'maxTouchPoints', { get: touchGetter, configurable: true, enumerable: true });
+      }
+
+      // Keep navigator.webdriver exactly as the installed browser exposes it.
+      // Replacing its native descriptor is rejected by some identity providers.
+    } catch(e) {}
+  }
+
+  applyHardwareSpoofs(navigator, window.Navigator ? Navigator.prototype : null);
+
+  // ==========================================
+  // 2. SCREEN RESOLUTION SPOOFING
+  // ==========================================
+  function applyScreenSpoofs(win) {
+    try {
+      const scr = win.screen;
+      const ScrProto = win.Screen ? win.Screen.prototype : null;
+      const screenProps = {
+        width: SCREEN_W,
+        height: SCREEN_H,
+        availWidth: SCREEN_W,
+        availHeight: SCREEN_AVAIL_H,
+        colorDepth: 24,
+        pixelDepth: 24,
+        availLeft: 0,
+        availTop: 0
+      };
+
+      for (const [prop, val] of Object.entries(screenProps)) {
+        const getter = makeNative(function() { return val; }, `get ${prop}`);
+        if (ScrProto) {
+          try {
+            Object.defineProperty(ScrProto, prop, { get: getter, configurable: true, enumerable: true });
+          } catch(e) {}
+        }
+        if (scr) {
+          try {
+            Object.defineProperty(scr, prop, { get: getter, configurable: true, enumerable: true });
+          } catch(e) {}
+        }
+      }
+
+      if (typeof DEVICE_PIXEL_RATIO === 'number') {
+        const dprGetter = makeNative(function() { return DEVICE_PIXEL_RATIO; }, 'get devicePixelRatio');
+        try {
+          Object.defineProperty(win, 'devicePixelRatio', { get: dprGetter, configurable: true, enumerable: true });
+        } catch(e) {}
+      }
+    } catch(e) {}
+  }
+
+  applyScreenSpoofs(window);
+
+  // ==========================================
+  // 3. WEBGL GPU HARDWARE MASKING
+  // ==========================================
+  function hookWebGLProto(proto) {
+    if (!proto || !proto.getParameter) return;
+    const originalGetParameter = proto.getParameter;
+
+    const patchedGetParameter = makeNative(function getParameter(param) {
+      // UNMASKED_VENDOR_WEBGL
+      if (param === 37445) return TARGET_GPU_VENDOR;
+      // UNMASKED_RENDERER_WEBGL
+      if (param === 37446) return TARGET_GPU_RENDERER;
+      // VENDOR
+      if (param === 7936) return "Google Inc.";
+      // RENDERER
+      if (param === 7937) return "WebKit WebGL";
+
+      return originalGetParameter.call(this, param);
+    }, 'getParameter');
+
+    proto.getParameter = patchedGetParameter;
+
+    // Also protect getExtension('WEBGL_debug_renderer_info')
+    const originalGetExtension = proto.getExtension;
+    if (originalGetExtension) {
+      proto.getExtension = makeNative(function getExtension(name) {
+        return originalGetExtension.call(this, name);
+      }, 'getExtension');
+    }
+  }
+
+  if (window.WebGLRenderingContext) hookWebGLProto(WebGLRenderingContext.prototype);
+  if (window.WebGL2RenderingContext) hookWebGLProto(WebGL2RenderingContext.prototype);
+
+  // Also hook OffscreenCanvas if present
+  if (window.OffscreenCanvas) {
+    try {
+      const origOffscreenGetContext = OffscreenCanvas.prototype.getContext;
+      OffscreenCanvas.prototype.getContext = makeNative(function getContext(type, ...args) {
+        const ctx = origOffscreenGetContext.call(this, type, ...args);
+        if (ctx && (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl')) {
+          hookWebGLProto(Object.getPrototypeOf(ctx));
+        }
+        return ctx;
+      }, 'getContext');
+    } catch(e) {}
+  }
+
+  // ==========================================
+  // 4. CANVAS FINGERPRINT SHIELD (PER-PROFILE DETERMINISTIC ISOLATION)
+  // ==========================================
+  // Noise is fixed per profile (same drawing -> same hash on every read) and differs between
+  // profiles. It is applied to a copy at read time, so the page's own canvas is never changed.
+  // Colour noise goes only on fully opaque pixels: Chrome stores canvas pixels premultiplied by
+  // alpha, so a +-1 on a semi-transparent pixel is rounded away on the way back out. On those
+  // pixels the alpha value itself is nudged instead, which survives exactly.
+  try {
+    const origGetImageData = CanvasRenderingContext2D.prototype.getImageData;
+    const origPutImageData = CanvasRenderingContext2D.prototype.putImageData;
+    const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+
+    // A hooked function carries its own toString (see makeNative); a native one does not.
+    // If this script lands twice in one page (extension + CDP), the second copy must not stack.
+    const alreadyShielded = Object.prototype.hasOwnProperty.call(origToDataURL, 'toString');
+
+    if (!alreadyShielded) {
+      const MAX_NOISE_PIXELS = 4000000;  // bigger canvases are images, not fingerprint probes
+
+      function pixelHash(x, y) {
+        let h = Math.imul(PROFILE_SEED ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(x + 1, 0xc2b2ae35) ^ Math.imul(y + 1, 0x27d4eb2f);
+        h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
+        h = Math.imul(h ^ (h >>> 12), 0x297a2d39);
+        return (h ^ (h >>> 15)) >>> 0;
+      }
+
+      // data holds the w x h rect whose top-left is (ox, oy) on the canvas. Pixels are picked by
+      // canvas position, so getImageData and toDataURL agree on where the noise is.
+      function addNoise(data, ox, oy, w, h) {
+        if (w * h > MAX_NOISE_PIXELS) return;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            const a = data[i + 3];
+            if (a === 0) continue;
+            const r = pixelHash(ox + x, oy + y);
+            if ((r & 15) !== 0) continue;  // about 1 in 16 pixels
+            const up = ((r >>> 8) & 1) === 1;
+            if (a === 255) {
+              const c = i + ((r >>> 4) % 3);
+              const v = data[c];
+              data[c] = up ? (v === 255 ? 254 : v + 1) : (v === 0 ? 1 : v - 1);
+            } else {
+              data[i + 3] = (up || a === 1) ? a + 1 : a - 1;
+            }
+          }
+        }
+      }
+
+      function noiseImageData(img, sx, sw, sy, sh) {
+        // a negative width or height means the rect extends left or up from (sx, sy)
+        const ox = Math.floor(sw < 0 ? sx + sw : sx);
+        const oy = Math.floor(sh < 0 ? sy + sh : sy);
+        addNoise(img.data, ox, oy, img.width, img.height);
+      }
+
+      function noisyCopy(canvas) {
+        const w = canvas.width, h = canvas.height;
+        if (!w || !h || w * h > MAX_NOISE_PIXELS) return null;
+        const copy = document.createElement('canvas');
+        copy.width = w;
+        copy.height = h;
+        const ctx = copy.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(canvas, 0, 0);
+        const img = origGetImageData.call(ctx, 0, 0, w, h);  // throws on a tainted canvas
+        addNoise(img.data, 0, 0, w, h);
+        origPutImageData.call(ctx, img, 0, 0);
+        return copy;
+      }
+
+      CanvasRenderingContext2D.prototype.getImageData = makeNative(function getImageData(sx, sy, sw, sh) {
+        const img = origGetImageData.apply(this, arguments);
+        try { noiseImageData(img, sx, sw, sy, sh); } catch(e) {}
+        return img;
+      }, 'getImageData');
+
+      // Export from the noisy copy; on any failure (tainted, zero-size) fall through to the
+      // original so the page sees exactly the error or result it would natively.
+      HTMLCanvasElement.prototype.toDataURL = makeNative(function toDataURL() {
+        let copy = null;
+        try { copy = noisyCopy(this); } catch(e) { copy = null; }
+        return origToDataURL.apply(copy || this, arguments);
+      }, 'toDataURL');
+
+      HTMLCanvasElement.prototype.toBlob = makeNative(function toBlob(callback) {
+        let copy = null;
+        try { copy = noisyCopy(this); } catch(e) { copy = null; }
+        return origToBlob.apply(copy || this, arguments);
+      }, 'toBlob');
+
+      if (window.OffscreenCanvas && window.OffscreenCanvasRenderingContext2D) {
+        const origOffGetImageData = OffscreenCanvasRenderingContext2D.prototype.getImageData;
+        const origOffPutImageData = OffscreenCanvasRenderingContext2D.prototype.putImageData;
+        const origConvertToBlob = OffscreenCanvas.prototype.convertToBlob;
+
+        OffscreenCanvasRenderingContext2D.prototype.getImageData = makeNative(function getImageData(sx, sy, sw, sh) {
+          const img = origOffGetImageData.apply(this, arguments);
+          try { noiseImageData(img, sx, sw, sy, sh); } catch(e) {}
+          return img;
+        }, 'getImageData');
+
+        if (origConvertToBlob) {
+          OffscreenCanvas.prototype.convertToBlob = makeNative(function convertToBlob() {
+            let copy = null;
+            try {
+              const w = this.width, h = this.height;
+              if (w && h && w * h <= MAX_NOISE_PIXELS) {
+                copy = new OffscreenCanvas(w, h);
+                const ctx = copy.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(this, 0, 0);
+                const img = origOffGetImageData.call(ctx, 0, 0, w, h);
+                addNoise(img.data, 0, 0, w, h);
+                origOffPutImageData.call(ctx, img, 0, 0);
+              }
+            } catch(e) { copy = null; }
+            return origConvertToBlob.apply(copy || this, arguments);
+          }, 'convertToBlob');
+        }
+      }
+    }
+
+    // ==========================================
+    // 5. FONT UNIQUENESS & METRICS ISOLATION SHIELD
+    // ==========================================
+    const origMeasureText = CanvasRenderingContext2D.prototype.measureText;
+    const desktopPool = ["Comic Sans MS", "Impact", "Garamond", "Trebuchet MS", "Palatino", "Bookman", "Georgia", "Verdana"];
+    const iosExcluded = ["Comic Sans MS", "Impact", "Lucida Console", "Lucida Sans Unicode", "Trebuchet MS"];
+
+    // Determine fonts to suppress for this profile
+    let suppressedFonts = [];
+    if (isIPhone || isAndroid) {
+      suppressedFonts = iosExcluded;
+    } else {
+      const idx1 = PROFILE_SEED % desktopPool.length;
+      const idx2 = (PROFILE_SEED * 3 + 1) % desktopPool.length;
+      suppressedFonts = [desktopPool[idx1]];
+      if (idx1 !== idx2) suppressedFonts.push(desktopPool[idx2]);
+    }
+
+    CanvasRenderingContext2D.prototype.measureText = makeNative(function measureText(text) {
+      const currentFont = (this.font || "").toLowerCase();
+      for (const sf of suppressedFonts) {
+        if (currentFont.includes(sf.toLowerCase())) {
+          // Emulate font fallback to monospace width so probe detects font as uninstalled
+          const prev = this.font;
+          this.font = '72px monospace';
+          const fallback = origMeasureText.call(this, text);
+          this.font = prev;
+          return fallback;
+        }
+      }
+      return origMeasureText.call(this, text);
+    }, 'measureText');
+
+    // Also align document.fonts.check if available
+    if (document.fonts && document.fonts.check) {
+      const origFontsCheck = document.fonts.check;
+      document.fonts.check = makeNative(function check(font, text) {
+        const fLower = (font || "").toLowerCase();
+        for (const sf of suppressedFonts) {
+          if (fLower.includes(sf.toLowerCase())) return false;
+        }
+        return origFontsCheck.call(this, font, text);
+      }, 'check');
+    }
+
+  } catch(e) {}
+
+  // ==========================================
+  // 6. CLIENT HINTS CONSISTENCY
+  // ==========================================
+  try {
+    if (navigator.userAgentData) {
+      const isMobile = isAndroid || isIPhone;
+      const platformName = isMac ? "macOS" : (isAndroid ? "Android" : "Windows");
+
+      // If iPhone or legacy Android (e.g. 4.4.4 KitKat), userAgentData should be undefined
+      if (isIPhone || (isAndroid && (/Android 4\.4/i.test(ua) || /Nexus/i.test(ua)))) {
+        Object.defineProperty(navigator, 'userAgentData', {
+          get: makeNative(function() { return undefined; }, 'get userAgentData'),
+          configurable: true
+        });
+      }
+    }
+  } catch(e) {}
+
+  // ==========================================
+  // 7. WEB WORKER SPOOFING (CRITICAL FOR CREEPJS)
+  // ==========================================
+  try {
+    const workerPreamble = `
+      try {
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => ${TARGET_CORES}, configurable: true });
+        ${TARGET_MEMORY !== undefined ? `Object.defineProperty(navigator, 'deviceMemory', { get: () => ${TARGET_MEMORY}, configurable: true });` : 'delete navigator.deviceMemory;'}
+        Object.defineProperty(navigator, 'platform', { get: () => ${JSON.stringify(TARGET_PLATFORM)}, configurable: true });
+        if (self.OffscreenCanvas) {
+          const origGetContext = OffscreenCanvas.prototype.getContext;
+          OffscreenCanvas.prototype.getContext = function(type, ...args) {
+            const ctx = origGetContext.call(this, type, ...args);
+            if (ctx && (type === 'webgl' || type === 'webgl2')) {
+              const origGetParam = ctx.getParameter;
+              ctx.getParameter = function(p) {
+                if (p === 37445) return ${JSON.stringify(TARGET_GPU_VENDOR)};
+                if (p === 37446) return ${JSON.stringify(TARGET_GPU_RENDERER)};
+                return origGetParam.call(this, p);
+              };
+            }
+            return ctx;
+          };
+        }
+        if (self.Intl && self.Intl.DateTimeFormat) {
+          const origRes = Intl.DateTimeFormat.prototype.resolvedOptions;
+          Intl.DateTimeFormat.prototype.resolvedOptions = function() {
+            const r = origRes.apply(this, arguments);
+            r.timeZone = ${JSON.stringify(TARGET_TIMEZONE)};
+            return r;
+          };
+        }
+        Date.prototype.getTimezoneOffset = function() {
+          const dUTC = new Date(this.toLocaleString('en-US', { timeZone: 'UTC' }));
+          const dTZ = new Date(this.toLocaleString('en-US', { timeZone: ${JSON.stringify(TARGET_TIMEZONE)} }));
+          return Math.round((dUTC - dTZ) / 60000);
+        };
+      } catch(e) {}
+    `;
+
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = makeNative(function createObjectURL(object) {
+      if (object instanceof Blob && (object.type === 'application/javascript' || object.type === 'text/javascript' || object.type === '')) {
+        try {
+          const newBlob = new Blob([workerPreamble, object], { type: object.type || 'application/javascript' });
+          return originalCreateObjectURL.call(this, newBlob);
+        } catch(e) {}
+      }
+      return originalCreateObjectURL.call(this, object);
+    }, 'createObjectURL');
+  } catch(e) {}
+
+  // ==========================================
+  // 8. IFRAME REALM SPOOFING
+  // ==========================================
+  try {
+    const origIFrameContentWindow = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow')?.get;
+    if (origIFrameContentWindow) {
+      Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
+        get: makeNative(function() {
+          const win = origIFrameContentWindow.call(this);
+          if (win) {
+            try {
+              applyHardwareSpoofs(win.navigator, win.Navigator ? win.Navigator.prototype : null);
+              applyScreenSpoofs(win);
+              applyTimezoneSpoofs(win);
+              if (win.WebGLRenderingContext) hookWebGLProto(win.WebGLRenderingContext.prototype);
+              if (win.WebGL2RenderingContext) hookWebGLProto(win.WebGL2RenderingContext.prototype);
+              applyWebRTCSpoofs(win);
+            } catch(e) {}
+          }
+          return win;
+        }, 'get contentWindow'),
+        configurable: true
+      });
+    }
+  } catch(e) {}
+
+  // ==========================================
+  // 9. BULLETPROOF TIMEZONE & INTL SPOOFING
+  // ==========================================
+  function applyTimezoneSpoofs(targetScope) {
+    try {
+      const scope = targetScope || window;
+      if (!scope.Intl || !scope.Date) return;
+
+      function getTzOffsetMinutes(date, tz) {
+        try {
+          const dUTC = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+          const dTZ = new Date(date.toLocaleString('en-US', { timeZone: tz }));
+          return Math.round((dUTC - dTZ) / 60000);
+        } catch(e) {
+          return 240;
+        }
+      }
+
+      // 1. Intl.DateTimeFormat
+      const OriginalDateTimeFormat = scope.Intl.DateTimeFormat;
+      function PatchedDateTimeFormat(locales, options) {
+        const opt = options ? Object.assign({}, options) : {};
+        if (!opt.timeZone) {
+          opt.timeZone = TARGET_TIMEZONE;
+        }
+        return new OriginalDateTimeFormat(locales, opt);
+      }
+      PatchedDateTimeFormat.prototype = OriginalDateTimeFormat.prototype;
+      PatchedDateTimeFormat.supportedLocalesOf = OriginalDateTimeFormat.supportedLocalesOf;
+      makeNative(PatchedDateTimeFormat, 'DateTimeFormat');
+      scope.Intl.DateTimeFormat = PatchedDateTimeFormat;
+
+      // 2. Intl.DateTimeFormat.prototype.resolvedOptions
+      const originalResolvedOptions = OriginalDateTimeFormat.prototype.resolvedOptions;
+      OriginalDateTimeFormat.prototype.resolvedOptions = function() {
+        const res = originalResolvedOptions.apply(this, arguments);
+        try {
+          res.timeZone = TARGET_TIMEZONE;
+        } catch(e) {}
+        return res;
+      };
+      makeNative(OriginalDateTimeFormat.prototype.resolvedOptions, 'resolvedOptions');
+
+      // 3. Date.prototype.getTimezoneOffset
+      const originalGetTimezoneOffset = scope.Date.prototype.getTimezoneOffset;
+      scope.Date.prototype.getTimezoneOffset = function() {
+        return getTzOffsetMinutes(this, TARGET_TIMEZONE);
+      };
+      makeNative(scope.Date.prototype.getTimezoneOffset, 'getTimezoneOffset');
+
+      // 4. Date.prototype.toString & toTimeString
+      function formatTzDateString(d, tz, timeOnly) {
+        const offsetMin = getTzOffsetMinutes(d, tz);
+        const sign = offsetMin > 0 ? '-' : '+';
+        const absMin = Math.abs(offsetMin);
+        const h = String(Math.floor(absMin / 60)).padStart(2, '0');
+        const m = String(absMin % 60).padStart(2, '0');
+        const gmt = 'GMT' + sign + h + m;
+
+        const parts = new OriginalDateTimeFormat('en-US', {
+          timeZone: tz,
+          weekday: 'short', month: 'short', day: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+          timeZoneName: 'long'
+        }).formatToParts(d);
+
+        const map = {};
+        for (const p of parts) map[p.type] = p.value;
+        if (timeOnly) {
+          return `${map.hour}:${map.minute}:${map.second} ${gmt} (${map.timeZoneName})`;
+        }
+        return `${map.weekday} ${map.month} ${map.day} ${map.year} ${map.hour}:${map.minute}:${map.second} ${gmt} (${map.timeZoneName})`;
+      }
+
+      const originalDateToString = scope.Date.prototype.toString;
+      scope.Date.prototype.toString = function() {
+        if (isNaN(this.getTime())) return originalDateToString.apply(this, arguments);
+        return formatTzDateString(this, TARGET_TIMEZONE, false);
+      };
+      makeNative(scope.Date.prototype.toString, 'toString');
+
+      const originalDateToTimeString = scope.Date.prototype.toTimeString;
+      scope.Date.prototype.toTimeString = function() {
+        if (isNaN(this.getTime())) return originalDateToTimeString.apply(this, arguments);
+        return formatTzDateString(this, TARGET_TIMEZONE, true);
+      };
+      makeNative(scope.Date.prototype.toTimeString, 'toTimeString');
+
+    } catch(e) {}
+  }
+
+  // ==========================================
+  // 10. BULLETPROOF WEBRTC LEAK DEFENDER
+  // ==========================================
+  function applyWebRTCSpoofs(targetScope) {
+    try {
+      const scope = targetScope || window;
+      if (!scope || !TARGET_IP) return;
+
+      function sanitizeCandidateStr(str) {
+        if (!str || typeof str !== 'string') return str;
+        // Replace IPv4 pattern (excluding localhost / 0.0.0.0)
+        let res = str.replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, (match) => {
+          if (match.startsWith('127.') || match === '0.0.0.0') return match;
+          return TARGET_IP;
+        });
+        // Replace IPv6 patterns with target IP
+        res = res.replace(/[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){7}/g, TARGET_IP);
+        res = res.replace(/(?:[0-9a-fA-F]{1,4}:){1,7}:[0-9a-fA-F]{1,4}/g, TARGET_IP);
+        res = res.replace(/2401:[0-9a-fA-F:]+/g, TARGET_IP);
+        return res;
+      }
+
+      // 1. RTCIceCandidate Prototype
+      if (scope.RTCIceCandidate) {
+        const origCandDesc = Object.getOwnPropertyDescriptor(scope.RTCIceCandidate.prototype, 'candidate');
+        if (origCandDesc && origCandDesc.get) {
+          const origGet = origCandDesc.get;
+          const newGet = function() {
+            const val = origGet.call(this);
+            return sanitizeCandidateStr(val);
+          };
+          makeNative(newGet, 'get candidate');
+          Object.defineProperty(scope.RTCIceCandidate.prototype, 'candidate', {
+            get: newGet,
+            configurable: true,
+            enumerable: true
+          });
+        }
+
+        const origAddrDesc = Object.getOwnPropertyDescriptor(scope.RTCIceCandidate.prototype, 'address');
+        if (origAddrDesc && origAddrDesc.get) {
+          const origGet = origAddrDesc.get;
+          const newGet = function() {
+            const val = origGet.call(this);
+            if (!val) return val;
+            if (val.endsWith('.local') || val === '0.0.0.0' || val.startsWith('127.')) return val;
+            return TARGET_IP;
+          };
+          makeNative(newGet, 'get address');
+          Object.defineProperty(scope.RTCIceCandidate.prototype, 'address', {
+            get: newGet,
+            configurable: true,
+            enumerable: true
+          });
+        }
+
+        const origToJSON = scope.RTCIceCandidate.prototype.toJSON;
+        if (origToJSON) {
+          scope.RTCIceCandidate.prototype.toJSON = function() {
+            const obj = origToJSON.call(this);
+            if (obj) {
+              if (obj.candidate) obj.candidate = sanitizeCandidateStr(obj.candidate);
+              if (obj.address && !obj.address.endsWith('.local') && obj.address !== '0.0.0.0' && !obj.address.startsWith('127.')) {
+                obj.address = TARGET_IP;
+              }
+            }
+            return obj;
+          };
+          makeNative(scope.RTCIceCandidate.prototype.toJSON, 'toJSON');
+        }
+      }
+
+      // 2. RTCSessionDescription Prototype (SDP)
+      if (scope.RTCSessionDescription) {
+        const origSdpDesc = Object.getOwnPropertyDescriptor(scope.RTCSessionDescription.prototype, 'sdp');
+        if (origSdpDesc && origSdpDesc.get) {
+          const origGet = origSdpDesc.get;
+          const newGet = function() {
+            const val = origGet.call(this);
+            return sanitizeCandidateStr(val);
+          };
+          makeNative(newGet, 'get sdp');
+          Object.defineProperty(scope.RTCSessionDescription.prototype, 'sdp', {
+            get: newGet,
+            configurable: true,
+            enumerable: true
+          });
+        }
+
+        const origSdpToJSON = scope.RTCSessionDescription.prototype.toJSON;
+        if (origSdpToJSON) {
+          scope.RTCSessionDescription.prototype.toJSON = function() {
+            const obj = origSdpToJSON.call(this);
+            if (obj && obj.sdp) obj.sdp = sanitizeCandidateStr(obj.sdp);
+            return obj;
+          };
+          makeNative(scope.RTCSessionDescription.prototype.toJSON, 'toJSON');
+        }
+      }
+
+      // 3. RTCPeerConnection Prototype getStats
+      if (scope.RTCPeerConnection && scope.RTCPeerConnection.prototype.getStats) {
+        const origGetStats = scope.RTCPeerConnection.prototype.getStats;
+        scope.RTCPeerConnection.prototype.getStats = async function(...args) {
+          const report = await origGetStats.apply(this, args);
+          try {
+            report.forEach((stat) => {
+              if (stat.ip && !stat.ip.startsWith('127.') && stat.ip !== '0.0.0.0' && !stat.ip.endsWith('.local')) {
+                stat.ip = TARGET_IP;
+              }
+              if (stat.address && !stat.address.startsWith('127.') && stat.address !== '0.0.0.0' && !stat.address.endsWith('.local')) {
+                stat.address = TARGET_IP;
+              }
+            });
+          } catch(e) {}
+          return report;
+        };
+        makeNative(scope.RTCPeerConnection.prototype.getStats, 'getStats');
+      }
+    } catch(e) {}
+  }
+
+  // Apply to main window
+  applyTimezoneSpoofs(window);
+  applyWebRTCSpoofs(window);
+
+})();

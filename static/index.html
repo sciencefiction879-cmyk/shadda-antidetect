@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadda Anti Detect v0.1 — Multi-Profile Browser</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+      <div class="nav-brand">
+        <div class="brand-logo" style="background: transparent; box-shadow: none;">
+          <img src="/app_icon.png" width="36" height="36" alt="Shadda Anti Detect Logo" style="border-radius: 8px; filter: drop-shadow(0 0 8px rgba(14,165,233,0.5));">
+        </div>
+        <div class="brand-text">
+          <h2>Shadda Anti Detect</h2>
+          <span class="brand-badge">Multi-Profile Manager</span>
+        </div>
+      </div>
+
+      <div class="nav-controls">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Search profiles, channels, UA...">
+        </div>
+
+        
+
+        <button class="btn-secondary" id="btnCountryProxiesHub" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 13px; font-weight: 600; cursor: pointer;" title="Explore & Test Live Country Proxies (Pakistan, India, USA, UK, Germany, Philippines, Russia, etc.)">
+          <span style="font-size: 16px;">🌍</span>
+          <span>Country Proxies</span>
+        </button>
+
+        <button class="btn-secondary" id="btnGithubAccounts" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 13px; font-weight: 600; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+          <span>GitHub Accounts</span>
+        </button>
+
+        <button class="btn-primary" id="btnNewProfile">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Create Profile</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Filter & Stats Bar -->
+    <div class="toolbar">
+      <div class="filter-pills">
+        <button class="pill active" data-filter="all">All (<span id="countAll">0</span>)</button>
+        <button class="pill" data-filter="running">Running (<span id="countRunning">0</span>)</button>
+        <button class="pill" data-filter="mobile">Mobile Devices (<span id="countMobile">0</span>)</button>
+        <button class="pill" data-filter="country">Country Proxies (<span id="countCountry">0</span>)</button>
+        <button class="pill" data-filter="github">GitHub Cloud IP (<span id="countGithub">0</span>)</button>
+      </div>
+
+      <div class="toolbar-stats" style="display: flex; align-items: center; gap: 10px;">
+        <button id="btnSwitchAllDirect" class="btn-text" style="font-size: 11.5px; color: var(--accent-cyan); background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 6px; padding: 5px 12px; font-weight: 600; cursor: pointer;" title="Make all profiles open instantly in 0.2s with full Anti-Detect stealth">
+          ⚡ All Direct (Instant Launch)
+        </button>
+        <button id="btnAutoUpdateToggle" class="btn-text" style="font-size: 11.5px; color: var(--accent-emerald, #10b981); background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 5px 12px; font-weight: 600; cursor: pointer;" title="Turn automatic update notifications on or off">
+          🔄 Auto-Update: <span id="autoUpdateState">ON</span>
+        </button>
+        <span class="status-indicator">
+          <span class="pulse-dot"></span>
+          System Online
+        </span>
+      </div>
+    </div>
+
+    <!-- Main Content Area: Profiles Grid -->
+    <main class="main-content">
+      <!-- Remote-Controlled Software Update Announcement Bar -->
+      <div id="updateNoticeBar" class="update-notice-bar" style="display: none;">
+        <div class="update-notice-content">
+          <span class="update-badge">UPDATE</span>
+          <div class="update-text">
+            <strong id="updateNoticeTitle">Anti-Detect Studio Update Available!</strong>
+            <span id="updateNoticeChangelog">Click update to get the latest features and anti-detect patches.</span>
+          </div>
+        </div>
+        <div class="update-actions">
+          <button type="button" class="btn-primary update-btn" id="updateNoticeBtn">
+            <span id="updateNoticeBtnText">Download Update 🚀</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="profiles-grid" id="profilesGrid">
+        <!-- Profile cards rendered dynamically by app.js -->
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" id="emptyState" style="display: none;">
+        <div class="empty-icon">📁</div>
+        <h3>No profiles found</h3>
+        <p>Create your first isolated browser profile to get started.</p>
+        <button class="btn-primary" id="btnEmptyCreate">+ Create Profile</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: Create / Edit Profile -->
+  <div class="modal-overlay" id="profileModal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitle">Create New Profile</h3>
+        <button class="modal-close" id="modalCloseBtn">&times;</button>
+      </div>
+
+      <form id="profileForm" class="modal-body">
+        <input type="hidden" id="formProfileId">
+
+        <!-- Name & Color -->
+        <div class="form-row">
+          <div class="form-group flex-3">
+            <label>Profile Name / Channel Name *</label>
+            <input type="text" id="formName" placeholder="e.g. Channel 1 — Ancient Rome Shorts" required>
+          </div>
+          <div class="form-group flex-1">
+            <label>Color</label>
+            <div class="color-picker-wrap">
+              <input type="color" id="formColor" value="#0ea5e9">
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-group">
+          <label>Notes / Tags</label>
+          <input type="text" id="formNotes" placeholder="e.g. Main Shorts account, upload at 6 PM">
+        </div>
+
+        <!-- User-Agent / Device Fingerprint -->
+        <div class="form-group">
+          <div class="label-with-action">
+            <label>Device / User-Agent Fingerprint *</label>
+            <button type="button" class="btn-text" id="btnFormRandomUa">🎲 Randomize Device</button>
+          </div>
+          <select id="formUserAgentSelect" class="form-select" required>
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <!-- Custom User-Agent Input (Hidden unless Custom is selected) -->
+        <div class="form-group" id="formCustomUaGroup" style="display: none;">
+          <label>Custom User-Agent String</label>
+          <textarea id="formCustomUaInput" rows="2" placeholder="Mozilla/5.0..."></textarea>
+        </div>
+
+        <!-- Proxy Configuration -->
+        <div class="form-group">
+          <label>Proxy Connection</label>
+          <div class="radio-cards">
+            <label class="radio-card">
+              <input type="radio" name="proxyType" value="country">
+              <div class="radio-card-content">
+                <span class="card-icon">🌍</span>
+                <span class="card-title">Country Proxy</span>
+                <span class="card-sub">Pakistan, India, USA, UK, Germany, Philippines, etc.</span>
+              </div>
+            </label>
+
+            <label class="radio-card">
+              <input type="radio" name="proxyType" value="github" checked>
+              <div class="radio-card-content">
+                <span class="card-icon">☁️</span>
+                <span class="card-title">GitHub Cloud Runner</span>
+                <span class="card-sub">Fresh Microsoft Azure Datacenter IP on launch</span>
+              </div>
+            </label>
+
+            <label class="radio-card">
+              <input type="radio" name="proxyType" value="custom">
+              <div class="radio-card-content">
+                <span class="card-icon">🔒</span>
+                <span class="card-title">Custom Proxy</span>
+                <span class="card-sub">SOCKS5 / HTTP proxy of your choice</span>
+              </div>
+            </label>
+
+            <label class="radio-card">
+              <input type="radio" name="proxyType" value="none">
+              <div class="radio-card-content">
+                <span class="card-icon">🌐</span>
+                <span class="card-title">Direct Connection</span>
+                <span class="card-sub">Uses your regular network without proxy</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Global Country Proxy Selection Panel -->
+        <div id="formCountryProxyGroup" style="display: none; background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <label style="font-weight: 700; color: var(--accent-emerald, #10b981); display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;">
+              <span>🌍</span> Global Country Proxy Pool
+            </label>
+            <span id="countryProxyCountBadge" style="font-size: 11px; background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 8px; border-radius: 12px; font-weight: 600;">Live Feed Ready</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <div>
+              <label style="font-size: 11.5px; color: var(--text-muted); display: block; margin-bottom: 4px;">Select Country</label>
+              <select id="formCountrySelect" class="form-select" style="width: 100%; padding: 8px 10px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; font-size: 13px;">
+                <option value="PK">🇵🇰 Pakistan</option>
+                <option value="IN">🇮🇳 India</option>
+                <option value="US">🇺🇸 United States</option>
+                <option value="GB">🇬🇧 United Kingdom</option>
+                <option value="DE">🇩🇪 Germany</option>
+                <option value="PH">🇵🇭 Philippines</option>
+                <option value="RU">🇷🇺 Russia</option>
+                <option value="CA">🇨🇦 Canada</option>
+                <option value="FR">🇫🇷 France</option>
+                <option value="NL">🇳🇱 Netherlands</option>
+                <option value="SG">🇸🇬 Singapore</option>
+                <option value="JP">🇯🇵 Japan</option>
+                <option value="AU">🇦🇺 Australia</option>
+                <option value="BR">🇧🇷 Brazil</option>
+                <option value="TR">🇹🇷 Turkey</option>
+                <option value="AE">🇦🇪 United Arab Emirates</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 11.5px; color: var(--text-muted); display: block; margin-bottom: 4px;">Assigned Live Proxy</label>
+              <div style="display: flex; gap: 6px;">
+                <input type="text" id="formCountryProxyInput" placeholder="Click Auto-Assign or pick below" readonly style="flex: 1; font-size: 11.5px; font-family: 'JetBrains Mono', monospace; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; color: #10b981; font-weight: 600;">
+                <button type="button" id="btnAutoAssignCountryProxy" class="btn-primary" style="padding: 6px 12px; font-size: 11.5px; white-space: nowrap; font-weight: 600; cursor: pointer; background: var(--accent-emerald, #10b981);">
+                  ⚡ Auto-Assign
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="countryProxyStatusBox" style="background: rgba(0,0,0,0.25); border-radius: 6px; padding: 8px 12px; font-size: 11.5px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div id="countryProxyInfoText" style="color: var(--text-muted);">
+              Select country and click <strong>Auto-Assign</strong> or select from live verified list below.
+            </div>
+            <button type="button" id="btnRefreshCountryProxies" class="btn-text" style="font-size: 11px; color: var(--accent-cyan); display: flex; align-items: center; gap: 4px; cursor: pointer;">
+              🔄 Refresh List
+            </button>
+          </div>
+
+          <div style="max-height: 140px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; background: rgba(0,0,0,0.2);">
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+              <thead>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-muted); text-align: left;">
+                  <th style="padding: 6px 10px;">Proxy Address</th>
+                  <th style="padding: 6px 10px;">Type</th>
+                  <th style="padding: 6px 10px;">City</th>
+                  <th style="padding: 6px 10px;">Ping</th>
+                  <th style="padding: 6px 10px; text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="countryProxyTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- GitHub Account Selector for this profile -->
+        <div class="form-group" id="formGithubAccountGroup">
+          <label style="font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+            <span>GitHub Account for Cloud Runner</span>
+            <button type="button" class="btn-text" id="btnOpenGhModalFromForm" style="font-size: 11px;">+ Add New Account</button>
+          </label>
+          <select id="formGithubAccountSelect" class="form-select">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <!-- ixBrowser-Style Easy Custom Proxy Section -->
+        <div id="formCustomProxyGroup" style="display: none; background: rgba(14, 165, 233, 0.04); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label style="font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;">
+              <span>⚡</span> Custom Proxy Manager (ixBrowser Style)
+            </label>
+            <span style="font-size: 11px; color: var(--text-muted);">HTTP / HTTPS / SOCKS5</span>
+          </div>
+
+          <!-- Quick Paste Auto-Fill Box -->
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="formProxyQuickPaste" placeholder="⚡ Quick Paste: ip:port:user:pass or user:pass@ip:port (auto-fills all)" style="flex: 1; font-size: 12px; font-family: 'JetBrains Mono', monospace; padding: 8px 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 6px; color: #fff;">
+              <button type="button" id="btnAutoFillProxy" class="btn-secondary" style="padding: 6px 14px; font-size: 12px; white-space: nowrap; font-weight: 600; cursor: pointer;">
+                Auto-Fill
+              </button>
+            </div>
+            <span style="font-size: 10.5px; color: var(--text-muted); margin-top: 4px; display: block;">
+              Works with all proxy formats: <code>ip:port</code>, <code>ip:port:user:pass</code>, <code>user:pass@ip:port</code>, <code>socks5://...</code>
+            </span>
+          </div>
+
+          <!-- Structured Proxy Inputs Grid -->
+          <div style="display: grid; grid-template-columns: 105px 1fr 90px; gap: 8px; margin-bottom: 10px;">
+            <div>
+              <label style="font-size: 11px; color: var(--text-muted); margin-bottom: 3px; display: block;">Protocol</label>
+              <select id="formProxyProtocol" class="form-select" style="padding: 7px 8px; font-size: 12px; font-weight: 600;">
+                <option value="http">HTTP</option>
+                <option value="https">HTTPS</option>
+                <option value="socks5" selected>SOCKS5</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 11px; color: var(--text-muted); margin-bottom: 3px; display: block;">Proxy Host / IP</label>
+              <input type="text" id="formProxyHost" placeholder="e.g. 185.220.101.5" style="padding: 7px 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: var(--text-muted); margin-bottom: 3px; display: block;">Port</label>
+              <input type="number" id="formProxyPort" placeholder="8080" style="padding: 7px 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace;">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+            <div>
+              <label style="font-size: 11px; color: var(--text-muted); margin-bottom: 3px; display: block;">Username (Optional)</label>
+              <input type="text" id="formProxyUser" placeholder="Leave blank if no auth" style="padding: 7px 10px; font-size: 12px;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: var(--text-muted); margin-bottom: 3px; display: block;">Password (Optional)</label>
+              <input type="password" id="formProxyPass" placeholder="Leave blank if no auth" style="padding: 7px 10px; font-size: 12px;">
+            </div>
+          </div>
+
+          <!-- Hidden input that holds the assembled customProxy string -->
+          <input type="hidden" id="formCustomProxy">
+
+          <!-- 1-Click Test Proxy Button & Status Banner -->
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <button type="button" id="btnTestProxyConn" class="btn-secondary" style="padding: 7px 14px; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; background: rgba(14, 165, 233, 0.15); border-color: rgba(14, 165, 233, 0.4); color: var(--accent-cyan); cursor: pointer;">
+              <span>⚡</span>
+              <span id="btnTestProxyText">Check / Test Proxy</span>
+            </button>
+            <span id="proxyTestStatusBadge" style="font-size: 11.5px; font-weight: 600; display: none;"></span>
+          </div>
+
+          <!-- Diagnostic Result Box -->
+          <div id="proxyDiagnosticCard" style="display: none; margin-top: 10px; background: rgba(0,0,0,0.35); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; font-size: 12px;">
+            <div id="proxyDiagContent" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;"></div>
+            <button type="button" id="btnApplyProxyTimezone" style="display: none; margin-top: 8px; font-size: 11px; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 4px; padding: 5px 10px; cursor: pointer; font-weight: 700;">
+              🕒 Auto-Set Profile Timezone to Match Proxy
+            </button>
+          </div>
+        </div>
+
+        <!-- Timezone Configuration -->
+        <div class="form-group">
+          <label>Timezone (Anti-Detect Spoofing) 🕒</label>
+          <select id="formTimezone" class="form-select">
+            <optgroup label="⭐ Popular Locations">
+              <option value="Asia/Karachi">🇵🇰 Pakistan (Asia/Karachi — PKT UTC+5)</option>
+              <option value="Asia/Kolkata">🇮🇳 India (Asia/Kolkata — IST UTC+5:30)</option>
+              <option value="Asia/Manila">🇵🇭 Philippines (Asia/Manila — PHT UTC+8)</option>
+              <option value="America/New_York" selected>🇺🇸 United States — Eastern (America/New_York — EDT/EST UTC-4/-5)</option>
+              <option value="America/Chicago">🇺🇸 United States — Central (America/Chicago — CDT/CST UTC-5/-6)</option>
+              <option value="America/Denver">🇺🇸 United States — Mountain (America/Denver — MDT/MST UTC-6/-7)</option>
+              <option value="America/Los_Angeles">🇺🇸 United States — Pacific (America/Los_Angeles — PDT/PST UTC-7/-8)</option>
+              <option value="Europe/London">🇬🇧 United Kingdom (Europe/London — GMT/BST UTC+0/+1)</option>
+              <option value="Europe/Berlin">🇩🇪 Germany (Europe/Berlin — CET/CEST UTC+1/+2)</option>
+              <option value="Asia/Dubai">🇦🇪 United Arab Emirates (Asia/Dubai — GST UTC+4)</option>
+              <option value="Asia/Singapore">🇸🇬 Singapore (Asia/Singapore — SGT UTC+8)</option>
+              <option value="Asia/Tokyo">🇯🇵 Japan (Asia/Tokyo — JST UTC+9)</option>
+            </optgroup>
+            <optgroup label="🌏 Asia & Middle East">
+              <option value="Asia/Riyadh">🇸🇦 Saudi Arabia (Asia/Riyadh — AST UTC+3)</option>
+              <option value="Asia/Dhaka">🇧🇩 Bangladesh (Asia/Dhaka — BST UTC+6)</option>
+              <option value="Asia/Jakarta">🇮🇩 Indonesia — Jakarta (Asia/Jakarta — WIB UTC+7)</option>
+              <option value="Asia/Makassar">🇮🇩 Indonesia — Bali/Makassar (Asia/Makassar — WITA UTC+8)</option>
+              <option value="Asia/Kuala_Lumpur">🇲🇾 Malaysia (Asia/Kuala_Lumpur — MYT UTC+8)</option>
+              <option value="Asia/Bangkok">🇹🇭 Thailand (Asia/Bangkok — ICT UTC+7)</option>
+              <option value="Asia/Ho_Chi_Minh">🇻🇳 Vietnam (Asia/Ho_Chi_Minh — ICT UTC+7)</option>
+              <option value="Asia/Seoul">🇰🇷 South Korea (Asia/Seoul — KST UTC+9)</option>
+              <option value="Asia/Hong_Kong">🇭🇰 Hong Kong (Asia/Hong_Kong — HKT UTC+8)</option>
+              <option value="Asia/Shanghai">🇨🇳 China (Asia/Shanghai — CST UTC+8)</option>
+              <option value="Asia/Taipei">🇹🇼 Taiwan (Asia/Taipei — CST UTC+8)</option>
+              <option value="Asia/Qatar">🇶🇦 Qatar (Asia/Qatar — AST UTC+3)</option>
+              <option value="Asia/Kuwait">🇰🇼 Kuwait (Asia/Kuwait — AST UTC+3)</option>
+              <option value="Asia/Muscat">🇴🇲 Oman (Asia/Muscat — GST UTC+4)</option>
+              <option value="Asia/Bahrain">🇧🇭 Bahrain (Asia/Bahrain — AST UTC+3)</option>
+              <option value="Asia/Baghdad">🇮🇶 Iraq (Asia/Baghdad — AST UTC+3)</option>
+              <option value="Asia/Amman">🇯🇴 Jordan (Asia/Amman — EEST UTC+3)</option>
+              <option value="Asia/Beirut">🇱🇧 Lebanon (Asia/Beirut — EET/EEST UTC+2/+3)</option>
+              <option value="Asia/Jerusalem">🇮🇱 Israel (Asia/Jerusalem — IDT/IST UTC+2/+3)</option>
+              <option value="Asia/Tehran">🇮🇷 Iran (Asia/Tehran — IRST UTC+3:30)</option>
+              <option value="Asia/Kabul">🇦🇫 Afghanistan (Asia/Kabul — AFT UTC+4:30)</option>
+              <option value="Asia/Kathmandu">🇳🇵 Nepal (Asia/Kathmandu — NPT UTC+5:45)</option>
+              <option value="Asia/Colombo">🇱🇰 Sri Lanka (Asia/Colombo — SLST UTC+5:30)</option>
+              <option value="Asia/Yangon">🇲🇲 Myanmar (Asia/Yangon — MMT UTC+6:30)</option>
+              <option value="Asia/Almaty">🇰🇿 Kazakhstan (Asia/Almaty — ALMT UTC+5)</option>
+              <option value="Asia/Tashkent">🇺🇿 Uzbekistan (Asia/Tashkent — UZT UTC+5)</option>
+            </optgroup>
+            <optgroup label="🌍 Europe">
+              <option value="Europe/Paris">🇫🇷 France (Europe/Paris — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Amsterdam">🇳🇱 Netherlands (Europe/Amsterdam — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Moscow">🇷🇺 Russia — Moscow (Europe/Moscow — MSK UTC+3)</option>
+              <option value="Asia/Yekaterinburg">🇷🇺 Russia — Yekaterinburg (Asia/Yekaterinburg — YEKT UTC+5)</option>
+              <option value="Asia/Novosibirsk">🇷🇺 Russia — Novosibirsk (Asia/Novosibirsk — NOVT UTC+7)</option>
+              <option value="Asia/Vladivostok">🇷🇺 Russia — Vladivostok (Asia/Vladivostok — VLAT UTC+10)</option>
+              <option value="Europe/Rome">🇮🇹 Italy (Europe/Rome — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Madrid">🇪🇸 Spain (Europe/Madrid — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Zurich">🇨🇭 Switzerland (Europe/Zurich — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Stockholm">🇸🇪 Sweden (Europe/Stockholm — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Oslo">🇳🇴 Norway (Europe/Oslo — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Copenhagen">🇩🇰 Denmark (Europe/Copenhagen — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Helsinki">🇫🇮 Finland (Europe/Helsinki — EET/EEST UTC+2/+3)</option>
+              <option value="Europe/Warsaw">🇵🇱 Poland (Europe/Warsaw — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Kyiv">🇺🇦 Ukraine (Europe/Kyiv — EET/EEST UTC+2/+3)</option>
+              <option value="Europe/Bucharest">🇷🇴 Romania (Europe/Bucharest — EET/EEST UTC+2/+3)</option>
+              <option value="Europe/Athens">🇬🇷 Greece (Europe/Athens — EET/EEST UTC+2/+3)</option>
+              <option value="Europe/Lisbon">🇵🇹 Portugal (Europe/Lisbon — WET/WEST UTC+0/+1)</option>
+              <option value="Europe/Dublin">🇮🇪 Ireland (Europe/Dublin — GMT/IST UTC+0/+1)</option>
+              <option value="Europe/Vienna">🇦🇹 Austria (Europe/Vienna — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Brussels">🇧🇪 Belgium (Europe/Brussels — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Prague">🇨🇿 Czech Republic (Europe/Prague — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Budapest">🇭🇺 Hungary (Europe/Budapest — CET/CEST UTC+1/+2)</option>
+              <option value="Europe/Istanbul">🇹🇷 Turkey (Europe/Istanbul — TRT UTC+3)</option>
+            </optgroup>
+            <optgroup label="🌎 Americas">
+              <option value="America/Phoenix">🇺🇸 United States — Arizona (America/Phoenix — MST UTC-7)</option>
+              <option value="America/Anchorage">🇺🇸 United States — Alaska (America/Anchorage — AKDT/AKST UTC-8/-9)</option>
+              <option value="Pacific/Honolulu">🇺🇸 United States — Hawaii (Pacific/Honolulu — HST UTC-10)</option>
+              <option value="America/Toronto">🇨🇦 Canada — Toronto / Montreal (America/Toronto — EDT/EST UTC-4/-5)</option>
+              <option value="America/Vancouver">🇨🇦 Canada — Vancouver (America/Vancouver — PDT/PST UTC-7/-8)</option>
+              <option value="America/Edmonton">🇨🇦 Canada — Edmonton / Calgary (America/Edmonton — MDT/MST UTC-6/-7)</option>
+              <option value="America/Winnipeg">🇨🇦 Canada — Winnipeg (America/Winnipeg — CDT/CST UTC-5/-6)</option>
+              <option value="America/Halifax">🇨🇦 Canada — Halifax (America/Halifax — ADT/AST UTC-3/-4)</option>
+              <option value="America/Mexico_City">🇲🇽 Mexico (America/Mexico_City — CST UTC-6)</option>
+              <option value="America/Sao_Paulo">🇧🇷 Brazil (America/Sao_Paulo — BRT UTC-3)</option>
+              <option value="America/Argentina/Buenos_Aires">🇦🇷 Argentina (America/Argentina/Buenos_Aires — ART UTC-3)</option>
+              <option value="America/Santiago">🇨🇱 Chile (America/Santiago — CLT UTC-3/-4)</option>
+              <option value="America/Bogota">🇨🇴 Colombia (America/Bogota — COT UTC-5)</option>
+              <option value="America/Lima">🇵🇪 Peru (America/Lima — PET UTC-5)</option>
+              <option value="America/Caracas">🇻🇪 Venezuela (America/Caracas — VET UTC-4)</option>
+            </optgroup>
+            <optgroup label="🦘 Oceania">
+              <option value="Australia/Sydney">🇦🇺 Australia — Sydney / Canberra (Australia/Sydney — AEST/AEDT UTC+10/+11)</option>
+              <option value="Australia/Melbourne">🇦🇺 Australia — Melbourne (Australia/Melbourne — AEST/AEDT UTC+10/+11)</option>
+              <option value="Australia/Brisbane">🇦🇺 Australia — Brisbane (Australia/Brisbane — AEST UTC+10)</option>
+              <option value="Australia/Perth">🇦🇺 Australia — Perth (Australia/Perth — AWST UTC+8)</option>
+              <option value="Australia/Adelaide">🇦🇺 Australia — Adelaide (Australia/Adelaide — ACST/ACDT UTC+9:30/+10:30)</option>
+              <option value="Pacific/Auckland">🇳🇿 New Zealand (Pacific/Auckland — NZDT/NZST UTC+12/+13)</option>
+            </optgroup>
+            <optgroup label="🌍 Africa">
+              <option value="Africa/Cairo">🇪🇬 Egypt (Africa/Cairo — EEST/EET UTC+2/+3)</option>
+              <option value="Africa/Johannesburg">🇿🇦 South Africa (Africa/Johannesburg — SAST UTC+2)</option>
+              <option value="Africa/Lagos">🇳🇬 Nigeria (Africa/Lagos — WAT UTC+1)</option>
+              <option value="Africa/Nairobi">🇰🇪 Kenya (Africa/Nairobi — EAT UTC+3)</option>
+              <option value="Africa/Casablanca">🇲🇦 Morocco (Africa/Casablanca — +01 UTC+1)</option>
+            </optgroup>
+            <optgroup label="🌐 Universal">
+              <option value="UTC">🌐 UTC (Universal Coordinated Time / GMT 0:00)</option>
+            </optgroup>
+          </select>
+          <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">
+            Websites aur CreepJS ko aapka real Windows Indian timezone (IST) kabhi reveal nahi hoga.
+          </span>
+        </div>
+
+        <!-- Start URL -->
+        <div class="form-group">
+          <label>Default Launch URL</label>
+          <input type="url" id="formStartUrl" value="https://studio.youtube.com">
+        </div>
+
+        <!-- Launch Immediately Checkbox -->
+        <!-- Strict Kill Switch Option -->
+        <div class="form-group" style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 12px;">
+          <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; text-transform: none; font-size: 13px; font-weight: 600; color: #fff; margin: 0;">
+            <input type="checkbox" id="formKillSwitch" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444; margin-top: 2px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="color: #f87171;">🛡️ Strict Proxy Kill Switch</span>
+                <span style="font-size: 10px; background: rgba(239, 68, 68, 0.25); color: #fca5a5; padding: 1px 6px; border-radius: 4px; font-weight: 700;">AIRTIGHT ZERO LEAK</span>
+              </div>
+              <span style="font-size: 11.5px; color: var(--text-muted); font-weight: 400; display: block; margin-top: 3px;">
+                Locks internet traffic strictly to the selected proxy. If the proxy drops or fails, all network access is completely blocked so your real IP is <strong>never exposed</strong>.
+              </span>
+            </div>
+          </label>
+        </div>
+
+        <div class="form-group" id="formAutoLaunchGroup" style="margin-top: 4px;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none; font-size: 13px; font-weight: 500; color: var(--text-primary);">
+            <input type="checkbox" id="formAutoLaunch" checked style="width: 17px; height: 17px; cursor: pointer; accent-color: var(--accent);">
+            <span>🚀 Launch browser window immediately after creation</span>
+          </label>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" id="btnCancelModal">Cancel</button>
+          <button type="submit" class="btn-primary" id="btnSaveProfile">Save Profile</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: GitHub Accounts Manager -->
+  <div class="modal-overlay" id="githubModal" style="display: none;">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 style="display: flex; align-items: center; gap: 8px;">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+          <span>GitHub Cloud Accounts</span>
+        </h3>
+        <button class="modal-close" id="githubModalCloseBtn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
+          Cloud Runner proxies use GitHub Actions (2,000 free minutes/mo per account). Connect multiple accounts so different profiles run from separate quotas and dedicated runner pools.
+        </p>
+
+        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">
+          Connected Accounts
+        </div>
+        <div id="githubAccountsList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px;">
+          <!-- Loaded dynamically -->
+        </div>
+
+        <div style="background: rgba(14, 165, 233, 0.05); border: 1px dashed var(--border-highlight); border-radius: var(--radius-md); padding: 16px;">
+          <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+            <span>+ Connect Another GitHub Account</span>
+          </h4>
+
+          <!-- Direct Token Generation Link Card -->
+          <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; gap: 6px;">
+                <span>⚡ 1-Click Direct Token Link:</span>
+              </span>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" id="btnCopyGhLink" class="btn-text" style="font-size: 11px; background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-color); color: var(--text-primary); cursor: pointer;">
+                  📋 Copy Link
+                </button>
+                <a id="btnOpenGhLink" href="https://github.com/settings/tokens/new?description=AntiDetect-Studio-Proxy&scopes=repo,workflow" target="_blank" style="font-size: 11px; background: var(--accent-cyan); color: #fff; text-decoration: none; padding: 4px 10px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                  <span>Open Link ↗</span>
+                </a>
+              </div>
+            </div>
+            <p style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.45; margin: 0;">
+              Yeh link aap jis bhi browser mein kholenge, wahan GitHub account login karne ke baad <strong>repo & workflow</strong> permissions pehle se select milengi. Bas neeche <strong>"Generate token"</strong> dabayein aur token copy karke yahan daal dein!
+            </p>
+          </div>
+
+          <form id="addGhAccountForm">
+            <div class="form-group">
+              <label style="font-size: 12px;">Personal Access Token (PAT) *</label>
+              <input type="password" id="ghTokenInput" placeholder="ghp_... or gho_..." required style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+              <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">
+                Token generated via link above (scopes: <code>repo</code> & <code>workflow</code>).
+              </span>
+            </div>
+            <div class="form-row" style="margin-bottom: 12px;">
+              <div class="form-group flex-2">
+                <label style="font-size: 12px;">Account Label (Optional)</label>
+                <input type="text" id="ghLabelInput" placeholder="e.g. Channel 2 Dedicated Account">
+              </div>
+              <div class="form-group flex-1" style="display: flex; align-items: flex-end; padding-bottom: 6px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; color: var(--text-primary);">
+                  <input type="checkbox" id="ghIsDefaultInput" style="width: 15px; height: 15px; accent-color: var(--accent-cyan);">
+                  <span>Default</span>
+                </label>
+              </div>
+            </div>
+            <button type="submit" class="btn-primary" id="btnSubmitGhAccount" style="width: 100%; justify-content: center;">
+              <span>Verify & Connect Account</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Modal: Global Country Proxies Hub -->
+  <div class="modal-overlay" id="countryProxiesModal" style="display: none;">
+    <div class="modal-card" style="max-width: 820px; width: 95%;">
+      <div class="modal-header">
+        <div>
+          <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
+            <span>🌍</span>
+            <span>Global Country Proxy Hub</span>
+          </h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0 0;">
+            Live residential & datacenter proxies for Pakistan, India, USA, UK, Germany, Philippines, Russia & more.
+          </p>
+        </div>
+        <button type="button" class="btn-icon" id="btnCloseCountryProxiesModal" style="cursor: pointer;">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px 20px;">
+        <!-- Country Selector Pills -->
+        <div style="margin-bottom: 14px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">
+            Target Country
+          </label>
+          <div id="countryHubPills" style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <!-- Rendered by app.js -->
+          </div>
+        </div>
+
+        <!-- Controls toolbar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="countryHubActiveBadge" style="font-size: 14px; font-weight: 700; color: #fff;">
+              🇵🇰 Pakistan
+            </span>
+            <span id="countryHubTzBadge" style="font-size: 11.5px; color: var(--accent-cyan); background: rgba(14, 165, 233, 0.12); padding: 3px 8px; border-radius: 6px;">
+              TZ: Asia/Karachi
+            </span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" id="btnCountryHubRefresh" class="btn-secondary" style="padding: 6px 12px; font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <span>🔄</span> Refresh Proxies
+            </button>
+            <button type="button" id="btnCountryHubQuickCreate" class="btn-primary" style="padding: 6px 14px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; background: var(--accent-emerald, #10b981);">
+              <span>⚡</span> New Profile With Best IP
+            </button>
+          </div>
+        </div>
+
+        <!-- Proxies Table -->
+        <div style="max-height: 320px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: rgba(0,0,0,0.25);">
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); text-align: left; background: rgba(255,255,255,0.02);">
+                <th style="padding: 10px 14px;">Proxy Address</th>
+                <th style="padding: 10px 12px;">Type</th>
+                <th style="padding: 10px 12px;">City / Region</th>
+                <th style="padding: 10px 12px;">Latency</th>
+                <th style="padding: 10px 12px;">Status</th>
+                <th style="padding: 10px 14px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="countryHubTableBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
