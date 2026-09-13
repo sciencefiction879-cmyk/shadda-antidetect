@@ -1,0 +1,92 @@
+name: Build Cross-Platform Releases
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows Executable
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bottle pywebview websocket-client proxy_tools pyinstaller packaging
+
+      - name: Build Windows Executable (PyInstaller)
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --windowed --onefile `
+            --name "Shadda-Anti-Detect" `
+            --add-data "static;static" `
+            --add-data "anti_detect_extension;anti_detect_extension" `
+            --add-data "bootstrap_config.json;." `
+            --add-data "github_client.pyc;." `
+            --add-data "github_accounts.json;." `
+            --hidden-import "country_proxies" `
+            --hidden-import "github_client" `
+            --hidden-import "webview" `
+            --hidden-import "websocket" `
+            --hidden-import "bottle" `
+            --hidden-import "proxy_tools" `
+            --collect-all "webview" `
+            server.py
+
+          pyinstaller --noconfirm --clean --windowed `
+            --name "Shadda Anti Detect" `
+            --add-data "static;static" `
+            --add-data "anti_detect_extension;anti_detect_extension" `
+            --add-data "bootstrap_config.json;." `
+            --add-data "github_client.pyc;." `
+            --add-data "github_accounts.json;." `
+            --hidden-import "country_proxies" `
+            --hidden-import "github_client" `
+            --hidden-import "webview" `
+            --hidden-import "websocket" `
+            --hidden-import "bottle" `
+            --hidden-import "proxy_tools" `
+            --collect-all "webview" `
+            server.py
+
+      - name: Create Windows ZIP Archive
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist\Shadda Anti Detect\*" -DestinationPath "dist\Shadda-Anti-Detect-Windows-x64.zip" -Force
+          Get-ChildItem dist
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-binaries
+          path: |
+            dist/Shadda-Anti-Detect.exe
+            dist/Shadda-Anti-Detect-Windows-x64.zip
+
+      - name: Release to GitHub
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          tag_name: v0.1
+          name: "Shadda Anti Detect v0.1"
+          files: |
+            dist/Shadda-Anti-Detect.exe
+            dist/Shadda-Anti-Detect-Windows-x64.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
