@@ -20,6 +20,7 @@ import ads_manager
 import auto_updater
 import proxy_tester
 import country_proxies
+import automation_controller
 
 PORT = 5055
 
@@ -319,6 +320,17 @@ class ProfileHandler(BaseHTTPRequestHandler):
                     p['allocatedIp'] = None
             return self._send_json(profiles)
 
+        if path == '/api/automation/active-session':
+            for pid in browser_runner.RUNNING_PROFILES:
+                st = automation_controller.get_session_state(pid)
+                if st and st.get('active'):
+                    return self._send_json(st)
+            return self._send_json({'active': False})
+
+        if path.startswith('/api/automation/') and path.endswith('/state'):
+            pid = path.split('/')[3]
+            return self._send_json(automation_controller.get_session_state(pid))
+
         # Serve static files
         req_path = path.lstrip('/')
         if not req_path or req_path == 'index.html':
@@ -378,12 +390,17 @@ class ProfileHandler(BaseHTTPRequestHandler):
 
             url_override = body.get('url')
             force_direct = body.get('direct', False)
+            with_automation = body.get('withAutomation', None)
             profile_to_launch = dict(profile)
             if force_direct:
                 profile_to_launch['proxyType'] = 'none'
 
             try:
-                success, msg = browser_runner.launch_profile_browser(profile_to_launch, url_override=url_override)
+                success, msg = browser_runner.launch_profile_browser(
+                    profile_to_launch,
+                    url_override=url_override,
+                    with_automation=with_automation
+                )
                 if not success:
                     return self._send_json({'success': False, 'error': msg, 'message': msg})
                 return self._send_json({'success': True, 'message': msg})
@@ -392,6 +409,20 @@ class ProfileHandler(BaseHTTPRequestHandler):
                 traceback.print_exc()
                 err_str = str(e)
                 return self._send_json({'success': False, 'error': err_str, 'message': err_str})
+
+        if path.startswith('/api/automation/') and path.endswith('/action'):
+            pid = path.split('/')[3]
+            action = body.get('action', 'continue')
+            ok, msg = automation_controller.advance_step(pid, user_action=action)
+            return self._send_json({'success': ok, 'message': msg})
+
+        if path.startswith('/api/automation/') and path.endswith('/start'):
+            pid = path.split('/')[3]
+            platforms = body.get('platforms', ['youtube'])
+            custom_url = body.get('customUrl', '')
+            gh_acc = body.get('githubAccountId')
+            sess = automation_controller.start_automation_session(pid, platforms, custom_url, gh_acc)
+            return self._send_json({'success': True, 'session': sess})
 
         if path.startswith('/api/profiles/') and path.endswith('/stop'):
             pid = path.split('/')[3]

@@ -624,6 +624,68 @@
           </label>
         </div>
 
+        <!-- Automation for this Profile (GitHub Actions) -->
+        <div class="form-group" style="background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: var(--radius-md); padding: 14px; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div>
+              <label style="font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;">
+                <span>🤖</span> Automation for this profile (GitHub Actions)
+              </label>
+              <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px;">
+                Controls profile tasks through cloud GitHub Actions runners with in-browser step guidance
+              </span>
+            </div>
+            <!-- ON / OFF Radio Toggle -->
+            <div style="display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 3px; border-radius: 6px; border: 1px solid var(--border-color);">
+              <label style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11.5px; font-weight: 700; margin: 0;" id="labelAutoOff">
+                <input type="radio" name="profileAutomationEnabled" value="off" checked style="accent-color: var(--accent-cyan); margin: 0;"> OFF
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11.5px; font-weight: 700; margin: 0;" id="labelAutoOn">
+                <input type="radio" name="profileAutomationEnabled" value="on" style="accent-color: var(--accent-cyan); margin: 0;"> ON
+              </label>
+            </div>
+          </div>
+
+          <!-- Platforms Selection Panel (Shown when ON) -->
+          <div id="formAutomationPlatformsGroup" style="display: none; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
+            <label style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 8px; display: block; font-weight: 600;">
+              Select Automation Platforms (Select multiple):
+            </label>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
+              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                <input type="checkbox" name="autoPlatform" value="youtube" checked style="accent-color: #ef4444; width: 15px; height: 15px;">
+                <span>🟥 YouTube</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                <input type="checkbox" name="autoPlatform" value="facebook" style="accent-color: #1877f2; width: 15px; height: 15px;">
+                <span>🟦 Facebook</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                <input type="checkbox" name="autoPlatform" value="tiktok" style="accent-color: #00f2fe; width: 15px; height: 15px;">
+                <span>⬛ TikTok</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                <input type="checkbox" name="autoPlatform" value="instagram" style="accent-color: #e1306c; width: 15px; height: 15px;">
+                <span>🟪 Instagram</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                <input type="checkbox" name="autoPlatform" value="twitter" style="accent-color: #1d9bf0; width: 15px; height: 15px;">
+                <span>⬛ X / Twitter</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                <input type="checkbox" name="autoPlatform" value="other" id="chkAutoPlatformOther" style="accent-color: #10b981; width: 15px; height: 15px;">
+                <span>🌐 Other</span>
+              </label>
+            </div>
+
+            <!-- Custom URL for Other -->
+            <div id="formAutoCustomUrlGroup" style="display: none; margin-top: 8px;">
+              <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Website URL for "Other" Automation:</label>
+              <input type="url" id="formAutoCustomUrl" placeholder="https://example.com/login" style="width: 100%; font-size: 12px; padding: 8px 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 6px; color: #fff;">
+            </div>
+          </div>
+        </div>
+
         <div class="form-group" id="formAutoLaunchGroup" style="margin-top: 4px;">
           <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none; font-size: 13px; font-weight: 500; color: var(--text-primary);">
             <input type="checkbox" id="formAutoLaunch" checked style="width: 17px; height: 17px; cursor: pointer; accent-color: var(--accent);">
@@ -637,6 +699,39 @@
           <button type="submit" class="btn-primary" id="btnSaveProfile">Save Profile</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Launch with Automation Choice -->
+  <div class="modal-overlay" id="launchChoiceModal" style="display: none;">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 id="launchChoiceTitle">🚀 Launch Profile</h3>
+        <button class="modal-close" id="launchChoiceCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="launchChoiceSubtitle" style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 16px;">
+          This profile has <strong>GitHub Actions automation</strong> enabled. How would you like to launch?
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px;">
+          <button type="button" id="btnLaunchWithAuto" style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(56, 189, 248, 0.25) 100%); border: 1px solid var(--accent-cyan); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+            <span style="font-size: 28px;">🤖</span>
+            <div>
+              <strong style="font-size: 14px; color: #fff; display: block; margin-bottom: 3px;">Launch with Automation</strong>
+              <span style="font-size: 11.5px; color: #94a3b8; display: block;">Connects to GitHub Actions cloud workflow with live in-browser guided HUD</span>
+            </div>
+          </button>
+
+          <button type="button" id="btnLaunchWithoutAuto" style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+            <span style="font-size: 28px;">🌐</span>
+            <div>
+              <strong style="font-size: 14px; color: #fff; display: block; margin-bottom: 3px;">Launch without Automation</strong>
+              <span style="font-size: 11.5px; color: #94a3b8; display: block;">Standard isolated anti-detect browsing without automation runners</span>
+            </div>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 

@@ -118,7 +118,7 @@ def save_cache(cache):
         print(f"[!] Warning: failed to save country proxy cache: {e}")
 
 
-def test_proxy_socket(protocol, host, port, timeout=3.0):
+def test_proxy_socket(protocol, host, port, timeout=3.5):
     start = time.time()
     proto = (protocol or '').lower().strip()
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -128,12 +128,25 @@ def test_proxy_socket(protocol, host, port, timeout=3.0):
         s.connect((host, int(port)))
 
         if proto == 'socks5':
+            # 1. Greet
             s.sendall(b'\x05\x01\x00')
             resp = s.recv(2)
-            if len(resp) >= 2 and resp[0] == 5 and resp[1] == 0:
-                latency = max(1, int((time.time() - start) * 1000))
-                return True, latency, 'socks5'
-            return False, None, 'socks5'
+            if len(resp) < 2 or resp[0] != 5 or resp[1] != 0:
+                return False, None, 'socks5'
+            # 2. Tunnel connect to a lightweight reliable endpoint
+            target_host = b'api.ipify.org'
+            connect_pkt = b'\x05\x01\x00\x03' + bytes([len(target_host)]) + target_host + (80).to_bytes(2, 'big')
+            s.sendall(connect_pkt)
+            conn_resp = s.recv(10)
+            if len(conn_resp) < 4 or conn_resp[1] != 0:
+                return False, None, 'socks5'
+            # 3. Verify actual HTTP response data passes through tunnel
+            s.sendall(b'GET / HTTP/1.1\r\nHost: api.ipify.org\r\nConnection: close\r\n\r\n')
+            data_resp = s.recv(128)
+            if not data_resp or b'HTTP' not in data_resp:
+                return False, None, 'socks5'
+            latency = max(1, int((time.time() - start) * 1000))
+            return True, latency, 'socks5'
 
         if proto == 'socks4':
             s.sendall(b'\x04\x01\x00\x50\x08\x08\x08\x08\x00')
@@ -145,14 +158,17 @@ def test_proxy_socket(protocol, host, port, timeout=3.0):
 
         # Default / HTTP / HTTPS proxy check
         # 1. Test HTTP CONNECT
-        s.sendall(b'CONNECT httpbin.org:80 HTTP/1.1\r\nHost: httpbin.org:80\r\n\r\n')
+        s.sendall(b'CONNECT api.ipify.org:80 HTTP/1.1\r\nHost: api.ipify.org:80\r\n\r\n')
         resp = s.recv(256)
         if b'407' in resp or b'401' in resp or b'403' in resp:
             # Requires authentication — strictly reject
             return False, None, 'http'
         if b'HTTP' in resp and (b'200' in resp or b'Connection established' in resp):
-            latency = max(1, int((time.time() - start) * 1000))
-            return True, latency, 'http'
+            s.sendall(b'GET / HTTP/1.1\r\nHost: api.ipify.org\r\nConnection: close\r\n\r\n')
+            data_resp = s.recv(128)
+            if data_resp and b'HTTP' in data_resp:
+                latency = max(1, int((time.time() - start) * 1000))
+                return True, latency, 'http'
 
         # 2. If CONNECT was not supported, test standard HTTP GET
         try:

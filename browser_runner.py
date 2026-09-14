@@ -8,11 +8,13 @@ import hashlib
 import subprocess
 import threading
 from urllib.parse import urlparse
+import urllib.request
 
 import github_client
 import proxy_tester
 import stealth_injector
 import country_proxies
+import automation_controller
 
 RUNNING_PROFILES = {}
 
@@ -69,20 +71,69 @@ def get_profile_dir(profile_id):
     return p_dir
 
 
-def is_profile_running(profile_id):
-    if profile_id not in RUNNING_PROFILES:
+def check_browser_window_alive(debug_port):
+    """Checks whether Chromium at debug_port has at least one open page window."""
+    if not debug_port:
         return False
-    proc = RUNNING_PROFILES[profile_id].get('proc')
-    if proc is None:
+    try:
+        url = f"http://127.0.0.1:{debug_port}/json/list"
+        req = urllib.request.Request(url, headers={"User-Agent": "ShaddaWindowWatcher/1.0"})
+        with urllib.request.urlopen(req, timeout=0.6) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            pages = [t for t in data if t.get('type') == 'page']
+            return len(pages) > 0
+    except Exception:
         return False
-    if proc.poll() is not None:
-        cleanup_profile(profile_id)
-        return False
-    return True
 
 
 def cleanup_profile(profile_id):
     RUNNING_PROFILES.pop(profile_id, None)
+
+
+def stop_profile_browser(profile_id):
+    if profile_id not in RUNNING_PROFILES:
+        return False, "Profile is not running."
+
+    info = RUNNING_PROFILES[profile_id]
+    proc = info.get('proc')
+    if proc:
+        try:
+            proc.terminate()
+            try:
+                proc.wait(timeout=2)
+            except Exception:
+                proc.kill()
+        except Exception as e:
+            print(f"[!] Failed to stop profile {profile_id}: {e}")
+
+    try:
+        automation_controller.stop_automation_session(profile_id)
+    except Exception:
+        pass
+
+    cleanup_profile(profile_id)
+    return True, "Profile stopped."
+
+
+def is_profile_running(profile_id):
+    if profile_id not in RUNNING_PROFILES:
+        return False
+    info = RUNNING_PROFILES[profile_id]
+    proc = info.get('proc')
+    if proc is None or proc.poll() is not None:
+        cleanup_profile(profile_id)
+        return False
+
+    debug_port = info.get('debug_port')
+    start_time = info.get('start_time', 0)
+    # Check if window was closed by the user (grace period 4.5s for initial window render)
+    if debug_port and (time.time() - start_time > 4.5):
+        if not check_browser_window_alive(debug_port):
+            print(f"[*] Detected closed window for {profile_id}. Stopping profile...")
+            stop_profile_browser(profile_id)
+            return False
+
+    return True
 
 
 def _get_github_account(account_id=None):
@@ -156,6 +207,7 @@ def prepare_profile_extension(user_data_dir, profile, allocated_ip=None, proxy_a
             p_id = str(profile.get('id', 'default'))
             p_seed = (int(hashlib.md5(p_id.encode('utf-8')).hexdigest()[:6], 16) % 9999) + 1
 
+            content = f"window.__SHADDA_PROFILE_ID__ = '{p_id}';\n" + content
             content = content.replace('__PROFILE_TIMEZONE__', tz)
             content = content.replace('__PROFILE_ALLOCATED_IP__', allocated_ip or '')
             content = content.replace('__PROFILE_SEED__', str(p_seed))
@@ -203,7 +255,7 @@ def _find_free_port():
         return s.getsockname()[1]
 
 
-def launch_profile_browser(profile, url_override=None, on_status_change=None):
+def launch_profile_browser(profile, url_override=None, on_status_change=None, with_automation=False):
     profile_id = profile['id']
     if is_profile_running(profile_id):
         return True, "Profile is already running."
@@ -224,6 +276,17 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None):
     custom_proxy = profile.get('customProxy', '')
     start_url = url_override or profile.get('startUrl', 'https://studio.youtube.com')
     is_mobile = profile.get('isMobile', False)
+
+    # Handle Guided Automation initialization
+    auto_cfg = profile.get('automation') or {}
+    if with_automation or (with_automation is None and auto_cfg.get('enabled')):
+        platforms = auto_cfg.get('platforms', ['youtube'])
+        custom_url = auto_cfg.get('customUrl', '')
+        gh_acc = profile.get('githubAccountId') or auto_cfg.get('githubAccountId')
+        automation_controller.start_automation_session(profile_id, platforms, custom_url=custom_url, github_account_id=gh_acc)
+        steps = automation_controller.build_workflow_steps(platforms, custom_url)
+        if steps and steps[0].get('targetUrl') and not url_override:
+            start_url = steps[0]['targetUrl']
 
     proxy_arg = None
     proxy_host = None
@@ -252,6 +315,21 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None):
     elif proxy_type == 'country':
         country_code = profile.get('countryCode', 'PK')
         px_url = profile.get('countryProxy') or profile.get('customProxy')
+
+        # Check if saved proxy is still alive; auto-heal if dead
+        if px_url:
+            parsed_test = proxy_tester.parse_proxy_string(px_url)
+            if parsed_test:
+                is_alive, _, _ = country_proxies.test_proxy_socket(
+                    parsed_test.get('protocol'),
+                    parsed_test.get('host'),
+                    parsed_test.get('port'),
+                    timeout=2.0
+                )
+                if not is_alive:
+                    print(f"[-] Stale country proxy detected ({px_url}) for {profile_id}. Auto-healing fresh proxy...")
+                    px_url = None
+
         if not px_url:
             best_px = country_proxies.get_best_country_proxy(country_code)
             if best_px:
@@ -412,9 +490,6 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None):
 
     if proxy_arg:
         chrome_cmd.append(proxy_arg)
-        if proxy_host:
-            # MAP * ~NOTFOUND strictly disables any direct DNS query on the local network
-            chrome_cmd.append(f"--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE {proxy_host}")
         chrome_cmd.append("--proxy-bypass-list=<-loopback>")
         chrome_cmd.append("--force-webrtc-ip-handling-policy=disable_non_proxied_udp")
         chrome_cmd.append("--enforce-webrtc-ip-permission-check")
@@ -455,32 +530,52 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None):
         injector.start()
 
     def monitor():
-        proc.wait()
+        start_t = time.time()
+        startup_grace = 5.0
+        seen_pages = False
+        consecutive_closed = 0
+
+        while proc.poll() is None:
+            time.sleep(1.0)
+            now = time.time()
+            if not seen_pages and (now - start_t < startup_grace):
+                if check_browser_window_alive(debug_port):
+                    seen_pages = True
+                continue
+
+            # Verify if any browser window/tab is still open
+            if not check_browser_window_alive(debug_port):
+                consecutive_closed += 1
+                if consecutive_closed >= 2:
+                    print(f"[*] Window closed by user for profile {profile_id}. Terminating Chrome process...")
+                    break
+            else:
+                consecutive_closed = 0
+
+        # Terminate proc if still lingering in background
+        if proc.poll() is None:
+            try:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except Exception:
+                    proc.kill()
+            except Exception:
+                pass
+
+        try:
+            automation_controller.stop_automation_session(profile_id)
+        except Exception:
+            pass
+
         cleanup_profile(profile_id)
         if on_status_change:
-            on_status_change(profile_id, 'stopped')
+            try:
+                on_status_change(profile_id, 'stopped')
+            except Exception:
+                pass
 
     t = threading.Thread(target=monitor, daemon=True)
     t.start()
 
     return True, "Profile browser launched successfully."
-
-
-def stop_profile_browser(profile_id):
-    if profile_id not in RUNNING_PROFILES:
-        return False, "Profile is not running."
-
-    info = RUNNING_PROFILES[profile_id]
-    proc = info.get('proc')
-    if proc:
-        try:
-            proc.terminate()
-            try:
-                proc.wait(timeout=2)
-            except Exception:
-                proc.kill()
-        except Exception as e:
-            print(f"[!] Failed to stop profile {profile_id}: {e}")
-
-    cleanup_profile(profile_id)
-    return True, "Profile stopped."

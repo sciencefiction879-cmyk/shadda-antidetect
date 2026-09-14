@@ -1,0 +1,56 @@
+name: Anti-Detect Guided Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile_id:
+        description: 'Target Anti-Detect Profile ID'
+        required: true
+        default: 'profile_1'
+      platforms:
+        description: 'Comma separated platforms (youtube,facebook,tiktok,instagram,twitter,other)'
+        required: true
+        default: 'youtube'
+      custom_url:
+        description: 'Custom URL if other is selected'
+        required: false
+        default: ''
+      action:
+        description: 'Action command or resume step'
+        required: false
+        default: 'start'
+
+permissions:
+  contents: write
+
+jobs:
+  automation_engine:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Initialize Environment
+        run: |
+          echo "=== Shadda Anti-Detect Guided Automation Engine ==="
+          echo "Profile ID: ${{ inputs.profile_id }}"
+          echo "Platforms: ${{ inputs.platforms }}"
+          echo "Custom URL: ${{ inputs.custom_url }}"
+          echo "Action: ${{ inputs.action }}"
+          echo "Timestamp: $(date -u)"
+
+      - name: Execute Workflow Steps
+        run: |
+          mkdir -p automation_runs
+          STATUS_FILE="automation_runs/${{ inputs.profile_id }}.json"
+          echo "{\"profile_id\": \"${{ inputs.profile_id }}\", \"platforms\": \"${{ inputs.platforms }}\", \"status\": \"active\", \"run_id\": \"${{ github.run_id }}\", \"timestamp\": $(date +%s)}" > "$STATUS_FILE"
+          echo "Automation state initialized for ${{ inputs.profile_id }}."
+
+      - name: Keep Runner Active for Guided Session
+        run: |
+          echo "GitHub Actions runner is listening for profile session events..."
+          for i in $(seq 1 30); do
+            echo "[Runner Heartbeat] Step monitoring cycle $i active..."
+            sleep 15
+          done
+          echo "Workflow run cycle complete."

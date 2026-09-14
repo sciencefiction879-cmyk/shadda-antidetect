@@ -55,10 +55,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Auto-update toggle: reflect saved state and wire the button.
   initAutoUpdateToggle();
 
-  // Real-time polling every 3 seconds
-  setInterval(loadProfiles, 3000);
+  // Responsive real-time profile polling: 1.2s when any profile is running, 3s when idle
+  let _pollTimer = null;
+  function scheduleNextProfilePoll() {
+    clearTimeout(_pollTimer);
+    const hasRunning = allProfiles && allProfiles.some(p => p.isRunning);
+    const delay = hasRunning ? 1200 : 3000;
+    _pollTimer = setTimeout(async () => {
+      await loadProfiles();
+      scheduleNextProfilePoll();
+    }, delay);
+  }
+  window.scheduleNextProfilePoll = scheduleNextProfilePoll;
+  scheduleNextProfilePoll();
 
-  // Re-fetch ads/updates every 5 minutes so owner broadcasts reach users without a restart.
+  // Re-fetch ads/updates every 15 seconds so broadcasts reach users without a restart.
   setInterval(loadAds, 15 * 1000);
   window.addEventListener('focus', loadAds);
   document.addEventListener('visibilitychange', () => {
@@ -375,7 +386,14 @@ function renderProfiles() {
         <div class="col-name">
           <span class="row-dot" style="background:${color};"></span>
           <div class="row-name-text">
-            <div class="profile-name" title="${p.name || ''}">${p.name || 'Untitled'}</div>
+            <div class="profile-name" title="${p.name || ''}">
+              ${p.name || 'Untitled'}
+              ${p.automation && p.automation.enabled ? `
+                <span class="badge-auto" style="font-size: 10px; font-weight: 700; background: rgba(14, 165, 233, 0.18); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.35); padding: 1px 6px; border-radius: 4px; margin-left: 6px; display: inline-flex; align-items: center; gap: 3px;" title="GitHub Actions Automation Enabled">
+                  🤖 ${(p.automation.platforms || ['YouTube']).map(x => x.toUpperCase()).join('+')}
+                </span>
+              ` : ''}
+            </div>
             <div class="profile-notes" title="${p.notes || ''}">${p.notes || 'No notes'}</div>
           </div>
         </div>
@@ -419,11 +437,46 @@ function renderProfiles() {
 }
 
 // Launch Profile
-async function launchProfile(id, urlOverride = null, forceDirect = false) {
+async function launchProfile(id, urlOverride, forceDirect, withAutomation) {
+  const p = allProfiles.find(x => x.id === id);
+
+  // If automation is enabled on this profile and launch choice hasn't been made yet:
+  if (p && p.automation && p.automation.enabled && withAutomation === undefined && !urlOverride) {
+    const modal = document.getElementById("launchChoiceModal");
+    const sub = document.getElementById("launchChoiceSubtitle");
+    const title = document.getElementById("launchChoiceTitle");
+    const plats = (p.automation.platforms || ['youtube']).map(x => x.toUpperCase()).join(', ');
+    if (title) title.textContent = `🚀 Launch "${p.name || 'Profile'}"`;
+    if (sub) sub.innerHTML = `This profile has <strong>GitHub Actions automation</strong> enabled for <strong>${plats}</strong>.<br><br>How would you like to launch this session?`;
+
+    const btnWith = document.getElementById("btnLaunchWithAuto");
+    const btnWithout = document.getElementById("btnLaunchWithoutAuto");
+    const btnClose = document.getElementById("launchChoiceCloseBtn");
+
+    if (btnWith) {
+      btnWith.onclick = () => {
+        modal.style.display = "none";
+        launchProfile(id, urlOverride, forceDirect, true);
+      };
+    }
+    if (btnWithout) {
+      btnWithout.onclick = () => {
+        modal.style.display = "none";
+        launchProfile(id, urlOverride, forceDirect, false);
+      };
+    }
+    if (btnClose) {
+      btnClose.onclick = () => {
+        modal.style.display = "none";
+      };
+    }
+    modal.style.display = "flex";
+    return;
+  }
+
   const card = document.querySelector(`.profile-card[data-id="${id}"]`);
   const btn = card ? card.querySelector(".btn-launch") : null;
   const testBtn = card ? card.querySelector(".btn-test") : null;
-  const p = allProfiles.find(x => x.id === id);
 
   if (!forceDirect && p && p.proxyType === "github" && (!allGithubAccounts || allGithubAccounts.length === 0)) {
     if (p.killSwitch !== false) {
@@ -432,13 +485,15 @@ async function launchProfile(id, urlOverride = null, forceDirect = false) {
     }
     const wantDirect = confirm("⚠️ GitHub Account Connected Nahi Hai!\n\nIs profile par 'GitHub Cloud Runner' proxy set hai lekin koi GitHub account connect nahi hai.\n\n👉 Kya aap is profile ko Direct Connection (with full Anti-Detect stealth) ke sath abhi kholna chahte hain?");
     if (wantDirect) {
-      return launchProfile(id, urlOverride, true);
+      return launchProfile(id, urlOverride, true, withAutomation);
     }
     return;
   }
 
   if (btn) {
-    if (urlOverride) {
+    if (withAutomation) {
+      btn.innerHTML = `<span class="pulse-dot"></span><span>Connecting GitHub Actions...</span>`;
+    } else if (urlOverride) {
       btn.innerHTML = `<span class="pulse-dot"></span><span>Starting CreepJS...</span>`;
     } else if (!forceDirect && p && p.proxyType === "github") {
       btn.innerHTML = `<span class="pulse-dot"></span><span>Connecting Azure IP...</span>`;
@@ -453,6 +508,7 @@ async function launchProfile(id, urlOverride = null, forceDirect = false) {
     const payload = {};
     if (urlOverride) payload.url = urlOverride;
     if (forceDirect) payload.direct = true;
+    if (withAutomation !== undefined) payload.withAutomation = withAutomation;
 
     const res = await fetch(`/api/profiles/${id}/launch`, {
       method: "POST",
@@ -627,6 +683,21 @@ function openCreateModal() {
   const autoCb = document.getElementById("formAutoLaunch");
   if (autoCb) autoCb.checked = true;
 
+  // Automation settings reset
+  const autoOffRadio = document.querySelector('input[name="profileAutomationEnabled"][value="off"]');
+  if (autoOffRadio) autoOffRadio.checked = true;
+  const autoPlatformsGrp = document.getElementById("formAutomationPlatformsGroup");
+  if (autoPlatformsGrp) autoPlatformsGrp.style.display = "none";
+  document.querySelectorAll('input[name="autoPlatform"]').forEach(chk => {
+    chk.checked = (chk.value === 'youtube');
+  });
+  const chkOther = document.getElementById("chkAutoPlatformOther");
+  if (chkOther) chkOther.checked = false;
+  const customUrlGrp = document.getElementById("formAutoCustomUrlGroup");
+  if (customUrlGrp) customUrlGrp.style.display = "none";
+  const customUrlInp = document.getElementById("formAutoCustomUrl");
+  if (customUrlInp) customUrlInp.value = "";
+
   const saveBtn = document.getElementById("btnSaveProfile");
   if (saveBtn) saveBtn.textContent = "+ Create Profile";
 
@@ -700,6 +771,24 @@ function openEditModal(id) {
     document.getElementById("formCustomProxyGroup").style.display = "none";
   }
 
+  // Populate Automation Settings
+  const autoCfg = p.automation || {};
+  const isAutoOn = !!autoCfg.enabled;
+  const autoRadio = document.querySelector(`input[name="profileAutomationEnabled"][value="${isAutoOn ? 'on' : 'off'}"]`);
+  if (autoRadio) autoRadio.checked = true;
+  const autoPlatformsGrp = document.getElementById("formAutomationPlatformsGroup");
+  if (autoPlatformsGrp) autoPlatformsGrp.style.display = isAutoOn ? "block" : "none";
+  const selectedPlats = autoCfg.platforms || (isAutoOn ? ['youtube'] : []);
+  document.querySelectorAll('input[name="autoPlatform"]').forEach(chk => {
+    chk.checked = selectedPlats.includes(chk.value);
+  });
+  const chkOther = document.getElementById("chkAutoPlatformOther");
+  if (chkOther) chkOther.checked = selectedPlats.includes('other');
+  const customUrlGrp = document.getElementById("formAutoCustomUrlGroup");
+  if (customUrlGrp) customUrlGrp.style.display = selectedPlats.includes('other') ? "block" : "none";
+  const customUrlInp = document.getElementById("formAutoCustomUrl");
+  if (customUrlInp) customUrlInp.value = autoCfg.customUrl || "";
+
   setTimezoneValue(p.timezone || "America/New_York");
   document.getElementById("formStartUrl").value = p.startUrl || "https://studio.youtube.com";
   const ksCb = document.getElementById("formKillSwitch");
@@ -730,6 +819,32 @@ function setupEventListeners() {
   document.getElementById("btnEmptyCreate").addEventListener("click", openCreateModal);
   document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
   document.getElementById("btnCancelModal").addEventListener("click", closeModal);
+
+  // Profile Automation Settings Toggle
+  const autoRadios = document.querySelectorAll('input[name="profileAutomationEnabled"]');
+  autoRadios.forEach(r => {
+    r.addEventListener('change', () => {
+      const isAuto = r.value === 'on';
+      const grp = document.getElementById("formAutomationPlatformsGroup");
+      if (grp) grp.style.display = isAuto ? "block" : "none";
+    });
+  });
+
+  const chkOther = document.getElementById("chkAutoPlatformOther");
+  if (chkOther) {
+    chkOther.addEventListener('change', () => {
+      const customGrp = document.getElementById("formAutoCustomUrlGroup");
+      if (customGrp) customGrp.style.display = chkOther.checked ? "block" : "none";
+    });
+  }
+
+  const launchChoiceClose = document.getElementById("launchChoiceCloseBtn");
+  if (launchChoiceClose) {
+    launchChoiceClose.addEventListener('click', () => {
+      document.getElementById("launchChoiceModal").style.display = "none";
+    });
+  }
+
   // Cloud Sync Modal & Header button listeners
   const btnCloudSync = document.getElementById("btnCloudSync");
   if (btnCloudSync) btnCloudSync.addEventListener("click", openCloudSyncModal);
@@ -1098,6 +1213,10 @@ function setupEventListeners() {
     const cText = selCountry && selCountry.options[selCountry.selectedIndex] ? selCountry.options[selCountry.selectedIndex].text : "🇵🇰 Pakistan";
     const cProxy = document.getElementById("formCountryProxyInput")?.value?.trim() || "";
 
+    const autoEnabled = document.querySelector('input[name="profileAutomationEnabled"]:checked')?.value === 'on';
+    const autoPlatforms = Array.from(document.querySelectorAll('input[name="autoPlatform"]:checked')).map(c => c.value);
+    const autoCustomUrl = document.getElementById("formAutoCustomUrl")?.value?.trim() || "";
+
     const payload = {
       name: document.getElementById("formName").value.trim(),
       color: document.getElementById("formColor").value,
@@ -1113,7 +1232,13 @@ function setupEventListeners() {
       customProxy: pType === "country" && cProxy ? cProxy : document.getElementById("formCustomProxy").value.trim(),
       killSwitch: Boolean(document.getElementById("formKillSwitch")?.checked),
       timezone: document.getElementById("formTimezone").value || "America/New_York",
-      startUrl: document.getElementById("formStartUrl").value.trim() || "https://studio.youtube.com"
+      startUrl: document.getElementById("formStartUrl").value.trim() || "https://studio.youtube.com",
+      automation: {
+        enabled: autoEnabled,
+        platforms: autoPlatforms.length ? autoPlatforms : ['youtube'],
+        customUrl: autoCustomUrl,
+        githubAccountId: document.getElementById("formGithubAccountSelect").value || "default"
+      }
     };
 
     if (payload.proxyType === "github" && (!allGithubAccounts || allGithubAccounts.length === 0)) {

@@ -32,6 +32,7 @@ echo "[1/4] Building standalone macOS App Bundle with PyInstaller..."
     --add-data "github_client.pyc:." \
     --add-data "github_accounts.json:." \
     --hidden-import "country_proxies" \
+    --hidden-import "automation_controller" \
     --hidden-import "github_client" \
     --hidden-import "webview" \
     --hidden-import "objc" \
