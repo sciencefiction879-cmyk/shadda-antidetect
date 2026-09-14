@@ -46,6 +46,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupEventListeners();
   initBuiltInUpdater();
   initDonationFeature();
+  await CloudSyncManager.init();
 
   // ── Admin detection: show Edit Wallets button only when admin panel is running ──
   detectAdminMode();
@@ -474,6 +475,7 @@ async function launchProfile(id, urlOverride = null, forceDirect = false) {
               const dataReassign = await resReassign.json();
               if (dataReassign.success) {
                 await loadProfiles();
+                CloudSyncManager.pushToCloud();
                 return launchProfile(id, urlOverride);
               } else {
                 alert(`⚠️ ${dataReassign.error || 'Live proxy nahi mila'}\n\nPlease header me '🌍 Country Proxies' par click karke koi dusra verified proxy select kijiye.`);
@@ -543,6 +545,7 @@ async function deleteProfile(id) {
   try {
     await fetch(`/api/profiles/${id}`, { method: "DELETE" });
     await loadProfiles();
+    CloudSyncManager.pushToCloud();
   } catch (err) {
     alert(`Delete failed: ${err.message}`);
   }
@@ -726,6 +729,133 @@ function setupEventListeners() {
   document.getElementById("btnEmptyCreate").addEventListener("click", openCreateModal);
   document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
   document.getElementById("btnCancelModal").addEventListener("click", closeModal);
+  // Cloud Sync Modal & Header button listeners
+  const btnCloudSync = document.getElementById("btnCloudSync");
+  if (btnCloudSync) btnCloudSync.addEventListener("click", openCloudSyncModal);
+
+  const btnCloseCloudSyncModal = document.getElementById("btnCloseCloudSyncModal");
+  if (btnCloseCloudSyncModal) btnCloseCloudSyncModal.addEventListener("click", closeCloudSyncModal);
+
+  const cloudSyncModal = document.getElementById("cloudSyncModal");
+  if (cloudSyncModal) {
+    cloudSyncModal.addEventListener("click", (e) => {
+      if (e.target === cloudSyncModal) closeCloudSyncModal();
+    });
+  }
+
+  const btnGenRoomKey = document.getElementById("btnGenRoomKey");
+  if (btnGenRoomKey) {
+    btnGenRoomKey.addEventListener("click", () => {
+      const randKey = "shadda-" + Math.random().toString(36).substring(2, 8);
+      const input = document.getElementById("cloudSyncRoomKey");
+      if (input) input.value = randKey;
+    });
+  }
+
+  const btnCopyRoomKey = document.getElementById("btnCopyRoomKey");
+  if (btnCopyRoomKey) {
+    btnCopyRoomKey.addEventListener("click", async () => {
+      const input = document.getElementById("cloudSyncRoomKey");
+      if (!input || !input.value.trim()) {
+        alert("Pehle Room Key enter ya generate kijiye!");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(input.value.trim());
+        btnCopyRoomKey.textContent = "✅ Copied!";
+        setTimeout(() => {
+          btnCopyRoomKey.textContent = "📋 Copy Key";
+        }, 2000);
+      } catch (e) {
+        input.select();
+        document.execCommand("copy");
+        btnCopyRoomKey.textContent = "✅ Copied!";
+        setTimeout(() => {
+          btnCopyRoomKey.textContent = "📋 Copy Key";
+        }, 2000);
+      }
+    });
+  }
+
+  const btnSaveCloudSync = document.getElementById("btnSaveCloudSync");
+  if (btnSaveCloudSync) {
+    btnSaveCloudSync.addEventListener("click", async () => {
+      const roomKeyInput = document.getElementById("cloudSyncRoomKey");
+      const urlInput = document.getElementById("cloudSyncFirebaseUrl");
+      const roomKey = (roomKeyInput ? roomKeyInput.value : "").trim();
+      const firebaseUrl = (urlInput && urlInput.value.trim()) ? urlInput.value.trim() : "https://user-ananlytics-default-rtdb.firebaseio.com";
+
+      if (!roomKey) {
+        alert("⚠️ Please enter a Sync Room Key (e.g. shadda-vault-491)!");
+        if (roomKeyInput) roomKeyInput.focus();
+        return;
+      }
+
+      btnSaveCloudSync.disabled = true;
+      btnSaveCloudSync.innerHTML = `<span>⏳ Connecting...</span>`;
+
+      try {
+        await fetch("/api/cloud-sync/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            enabled: true,
+            firebaseUrl: firebaseUrl,
+            roomKey: roomKey
+          })
+        });
+
+        CloudSyncManager.enabled = true;
+        CloudSyncManager.firebaseUrl = firebaseUrl;
+        CloudSyncManager.roomKey = roomKey;
+        CloudSyncManager.updateUI();
+        CloudSyncManager.connectSSE();
+
+        // Check if cloud has existing profiles or if we should push local
+        const base = firebaseUrl.replace(/\/+$/, "");
+        const res = await fetch(`${base}/workspaces/${encodeURIComponent(roomKey)}/profiles.json`);
+        const remoteData = await res.json();
+
+        let remoteCount = 0;
+        if (remoteData) {
+          if (Array.isArray(remoteData)) remoteCount = remoteData.length;
+          else if (typeof remoteData === "object") remoteCount = Object.keys(remoteData).length;
+        }
+
+        if (remoteCount > 0) {
+          await CloudSyncManager.pullFromCloud(true);
+          alert(`🎉 Live Cloud Sync Connected!\n\nRoom: ${roomKey}\nFound ${remoteCount} profiles in this cloud room and synced them to this device.`);
+        } else {
+          await CloudSyncManager.pushToCloud(false);
+          alert(`🎉 Live Cloud Sync Connected!\n\nRoom: ${roomKey}\nUploaded your local profiles to this new room. Enter this exact same Room Key on your other laptop/PC to mirror in real-time!`);
+        }
+      } catch (err) {
+        alert("Connection failed: " + err.message);
+      } finally {
+        btnSaveCloudSync.disabled = false;
+        CloudSyncManager.updateUI();
+      }
+    });
+  }
+
+  const btnPushCloudSync = document.getElementById("btnPushCloudSync");
+  if (btnPushCloudSync) {
+    btnPushCloudSync.addEventListener("click", () => CloudSyncManager.pushToCloud(true));
+  }
+
+  const btnPullCloudSync = document.getElementById("btnPullCloudSync");
+  if (btnPullCloudSync) {
+    btnPullCloudSync.addEventListener("click", () => CloudSyncManager.pullFromCloud(false));
+  }
+
+  const btnDisconnectCloudSync = document.getElementById("btnDisconnectCloudSync");
+  if (btnDisconnectCloudSync) {
+    btnDisconnectCloudSync.addEventListener("click", async () => {
+      if (!confirm("Are you sure you want to disconnect from Cloud Sync?\n\nYour profiles will remain safely on this device in local offline mode.")) return;
+      await CloudSyncManager.disconnect();
+      alert("Cloud Sync disconnected. This app is now running in local offline mode.");
+    });
+  }
 
   // Country Proxies Hub header button & modal listeners
   const btnCpHub = document.getElementById("btnCountryProxiesHub");
@@ -780,6 +910,7 @@ function setupEventListeners() {
       try {
         await fetch("/api/profiles/switch-all-direct", { method: "POST" });
         await loadProfiles();
+        CloudSyncManager.pushToCloud();
         alert("✅ Sabhi profiles ab Direct Connection par set ho gayi hain!\n\nAb 'Launch' dabate hi browser turant open ho jayega.");
       } catch (err) {
         alert("Failed: " + err.message);
@@ -1014,6 +1145,7 @@ function setupEventListeners() {
 
     closeModal();
     await loadProfiles();
+    CloudSyncManager.pushToCloud();
 
     // Automatically launch browser if requested
     if (newProfileId && shouldAutoLaunch) {
@@ -1923,3 +2055,324 @@ function showAdminEditButton(isAdmin) {
     adminPanelBtn.style.display = isAdmin ? "flex" : "none";
   }
 }
+
+// ─────────────────────────────────────────────────────────
+//  Multi-Device Real-Time Cloud Sync (Firebase Free Tier)
+// ─────────────────────────────────────────────────────────
+
+function openCloudSyncModal() {
+  const modal = document.getElementById("cloudSyncModal");
+  if (!modal) return;
+  CloudSyncManager.updateUI();
+  const roomInput = document.getElementById("cloudSyncRoomKey");
+  if (roomInput && !roomInput.value.trim()) {
+    if (CloudSyncManager.roomKey) {
+      roomInput.value = CloudSyncManager.roomKey;
+    } else {
+      roomInput.value = "shadda-" + Math.random().toString(36).substring(2, 8);
+    }
+  }
+  modal.style.display = "flex";
+}
+
+function closeCloudSyncModal() {
+  const modal = document.getElementById("cloudSyncModal");
+  if (modal) modal.style.display = "none";
+}
+
+window.openCloudSyncModal = openCloudSyncModal;
+window.closeCloudSyncModal = closeCloudSyncModal;
+
+const CloudSyncManager = {
+  enabled: false,
+  firebaseUrl: "https://user-ananlytics-default-rtdb.firebaseio.com",
+  roomKey: "",
+  lastSync: 0,
+  eventSource: null,
+  isSyncingLocal: false,
+
+  async init() {
+    try {
+      const res = await fetch("/api/cloud-sync/config");
+      const cfg = await res.json();
+      if (cfg) {
+        this.enabled = Boolean(cfg.enabled);
+        if (cfg.firebaseUrl) this.firebaseUrl = cfg.firebaseUrl;
+        if (cfg.roomKey) this.roomKey = cfg.roomKey;
+        if (cfg.lastSync) this.lastSync = cfg.lastSync;
+      }
+    } catch (e) {
+      console.warn("Could not load cloud sync config:", e);
+    }
+
+    this.updateUI();
+
+    if (this.enabled && this.roomKey) {
+      this.connectSSE();
+    }
+  },
+
+  updateUI() {
+    const statusDot = document.getElementById("cloudSyncStatusDot");
+    const btnText = document.getElementById("cloudSyncBtnText");
+    const bigDot = document.getElementById("cloudSyncBigDot");
+    const statusTitle = document.getElementById("cloudSyncStatusTitle");
+    const statusTag = document.getElementById("cloudSyncStatusTag");
+    const lastSyncTime = document.getElementById("cloudSyncLastSyncTime");
+    const btnPush = document.getElementById("btnPushCloudSync");
+    const btnPull = document.getElementById("btnPullCloudSync");
+    const btnDisconnect = document.getElementById("btnDisconnectCloudSync");
+    const btnSave = document.getElementById("btnSaveCloudSync");
+
+    const inputRoomKey = document.getElementById("cloudSyncRoomKey");
+    const inputFirebaseUrl = document.getElementById("cloudSyncFirebaseUrl");
+
+    if (inputRoomKey && this.roomKey && !inputRoomKey.value) {
+      inputRoomKey.value = this.roomKey;
+    }
+    if (inputFirebaseUrl && this.firebaseUrl) {
+      inputFirebaseUrl.value = this.firebaseUrl;
+    }
+
+    let timeStr = "Never";
+    if (this.lastSync) {
+      const d = new Date(this.lastSync * 1000);
+      timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " (" + d.toLocaleDateString() + ")";
+    }
+
+    if (this.enabled && this.roomKey) {
+      if (statusDot) {
+        statusDot.style.background = "#10b981";
+        statusDot.style.boxShadow = "0 0 8px rgba(16, 185, 129, 0.7)";
+      }
+      if (btnText) btnText.textContent = `Sync: ${this.roomKey.length > 12 ? this.roomKey.slice(0, 10) + "..." : this.roomKey}`;
+      if (bigDot) {
+        bigDot.style.background = "#10b981";
+        bigDot.style.boxShadow = "0 0 10px rgba(16, 185, 129, 0.8)";
+      }
+      if (statusTitle) statusTitle.textContent = `Live Synced (${this.roomKey})`;
+      if (statusTag) {
+        statusTag.textContent = "LIVE CLOUD";
+        statusTag.style.background = "rgba(16, 185, 129, 0.15)";
+        statusTag.style.color = "#10b981";
+      }
+      if (lastSyncTime) lastSyncTime.textContent = `Last sync: ${timeStr} • Real-time stream active`;
+      if (btnPush) btnPush.style.display = "inline-flex";
+      if (btnPull) btnPull.style.display = "inline-flex";
+      if (btnDisconnect) btnDisconnect.style.display = "flex";
+      if (btnSave) {
+        btnSave.innerHTML = `<span>🔄 Update Cloud Settings</span>`;
+      }
+    } else {
+      if (statusDot) {
+        statusDot.style.background = "#64748b";
+        statusDot.style.boxShadow = "0 0 6px rgba(100, 116, 139, 0.4)";
+      }
+      if (btnText) btnText.textContent = "Cloud Sync";
+      if (bigDot) {
+        bigDot.style.background = "#64748b";
+        bigDot.style.boxShadow = "0 0 8px rgba(100, 116, 139, 0.5)";
+      }
+      if (statusTitle) statusTitle.textContent = "Offline (Local Workspace)";
+      if (statusTag) {
+        statusTag.textContent = "LOCAL ONLY";
+        statusTag.style.background = "rgba(255,255,255,0.08)";
+        statusTag.style.color = "var(--text-muted)";
+      }
+      if (lastSyncTime) lastSyncTime.textContent = `Last sync: ${timeStr}`;
+      if (btnPush) btnPush.style.display = "none";
+      if (btnPull) btnPull.style.display = "none";
+      if (btnDisconnect) btnDisconnect.style.display = "none";
+      if (btnSave) {
+        btnSave.innerHTML = `<span>⚡ Connect & Start Live Sync</span>`;
+      }
+    }
+  },
+
+  connectSSE() {
+    if (this.eventSource) {
+      try { this.eventSource.close(); } catch (e) {}
+      this.eventSource = null;
+    }
+
+    if (!this.enabled || !this.roomKey) return;
+
+    const base = (this.firebaseUrl || "https://user-ananlytics-default-rtdb.firebaseio.com").replace(/\/+$/, "");
+    const cleanRoom = encodeURIComponent(this.roomKey.trim());
+    const sseUrl = `${base}/workspaces/${cleanRoom}/profiles.json`;
+
+    try {
+      this.eventSource = new EventSource(sseUrl);
+
+      this.eventSource.addEventListener("put", async (e) => {
+        if (this.isSyncingLocal) return; // Ignore own echo
+        try {
+          const payload = JSON.parse(e.data);
+          if (!payload) return;
+
+          if (payload.path === "/") {
+            let incoming = payload.data;
+            if (incoming === null) return;
+            let profilesList = [];
+            if (Array.isArray(incoming)) {
+              profilesList = incoming.filter(Boolean);
+            } else if (typeof incoming === "object") {
+              profilesList = Object.values(incoming).filter(Boolean);
+            }
+
+            if (profilesList.length > 0) {
+              await this.applyIncoming(profilesList);
+            }
+          } else {
+            await this.pullFromCloud(true);
+          }
+        } catch (err) {
+          console.warn("SSE put event parse error:", err);
+        }
+      });
+
+      this.eventSource.addEventListener("patch", async () => {
+        if (this.isSyncingLocal) return;
+        await this.pullFromCloud(true);
+      });
+
+      this.eventSource.onopen = () => {
+        const bigDot = document.getElementById("cloudSyncBigDot");
+        const statusDot = document.getElementById("cloudSyncStatusDot");
+        if (bigDot) {
+          bigDot.style.background = "#10b981";
+          bigDot.style.boxShadow = "0 0 10px rgba(16, 185, 129, 0.8)";
+        }
+        if (statusDot) {
+          statusDot.style.background = "#10b981";
+        }
+      };
+
+      this.eventSource.onerror = () => {
+        const bigDot = document.getElementById("cloudSyncBigDot");
+        if (bigDot) {
+          bigDot.style.background = "#f59e0b";
+          bigDot.style.boxShadow = "0 0 10px rgba(245, 158, 11, 0.6)";
+        }
+      };
+    } catch (err) {
+      console.warn("Failed to initiate EventSource for Firebase SSE:", err);
+    }
+  },
+
+  async applyIncoming(profilesList) {
+    try {
+      const res = await fetch("/api/cloud-sync/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profiles: profilesList })
+      });
+      const data = await res.json();
+      if (data.success) {
+        this.lastSync = data.lastSync || Math.floor(Date.now() / 1000);
+        this.updateUI();
+        await loadProfiles();
+      }
+    } catch (e) {
+      console.error("Failed to apply cloud sync payload:", e);
+    }
+  },
+
+  async pushToCloud(showToast = false) {
+    if (!this.enabled || !this.roomKey) return;
+    this.isSyncingLocal = true;
+
+    try {
+      const res = await fetch("/api/profiles");
+      const profiles = await res.json();
+      const sanitized = (profiles || []).map(p => {
+        const copy = { ...p };
+        delete copy.isRunning;
+        delete copy.allocatedIp;
+        return copy;
+      });
+
+      const base = (this.firebaseUrl || "https://user-ananlytics-default-rtdb.firebaseio.com").replace(/\/+$/, "");
+      const cleanRoom = encodeURIComponent(this.roomKey.trim());
+      const putUrl = `${base}/workspaces/${cleanRoom}/profiles.json`;
+
+      const fbRes = await fetch(putUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sanitized)
+      });
+
+      if (fbRes.ok) {
+        const nowTs = Math.floor(Date.now() / 1000);
+        this.lastSync = nowTs;
+        await fetch("/api/cloud-sync/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lastSync: nowTs })
+        });
+        this.updateUI();
+        if (showToast) {
+          alert(`✅ Successfully pushed ${sanitized.length} profiles to Cloud Room '${this.roomKey}'!`);
+        }
+      }
+    } catch (err) {
+      console.error("Cloud push failed:", err);
+      if (showToast) alert("Failed to push to Cloud: " + err.message);
+    } finally {
+      setTimeout(() => {
+        this.isSyncingLocal = false;
+      }, 1500);
+    }
+  },
+
+  async pullFromCloud(silent = false) {
+    if (!this.roomKey) return;
+    try {
+      const base = (this.firebaseUrl || "https://user-ananlytics-default-rtdb.firebaseio.com").replace(/\/+$/, "");
+      const cleanRoom = encodeURIComponent(this.roomKey.trim());
+      const getUrl = `${base}/workspaces/${cleanRoom}/profiles.json`;
+
+      const res = await fetch(getUrl);
+      const data = await res.json();
+
+      if (data === null) {
+        if (!silent) alert(`Cloud Room '${this.roomKey}' has no profiles yet.\n\nClick 'Push to Cloud' to upload your local profiles to this room.`);
+        return;
+      }
+
+      let profilesList = [];
+      if (Array.isArray(data)) {
+        profilesList = data.filter(Boolean);
+      } else if (typeof data === "object") {
+        profilesList = Object.values(data).filter(Boolean);
+      }
+
+      if (profilesList.length > 0) {
+        await this.applyIncoming(profilesList);
+        if (!silent) {
+          alert(`✅ Successfully pulled ${profilesList.length} profiles from Cloud Room '${this.roomKey}'!`);
+        }
+      } else {
+        if (!silent) alert("No profiles found in this Cloud Room.");
+      }
+    } catch (err) {
+      if (!silent) alert("Failed to pull from Cloud: " + err.message);
+    }
+  },
+
+  async disconnect() {
+    if (this.eventSource) {
+      try { this.eventSource.close(); } catch (e) {}
+      this.eventSource = null;
+    }
+    this.enabled = false;
+    await fetch("/api/cloud-sync/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: false })
+    });
+    this.updateUI();
+  }
+};
+
+window.CloudSyncManager = CloudSyncManager;

@@ -35,6 +35,12 @@
 
         
 
+        <button class="btn-secondary" id="btnCloudSync" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 13px; font-weight: 600; cursor: pointer;" title="Real-Time Cloud Sync across Devices (Firebase Free)">
+          <span id="cloudSyncStatusDot" style="width: 8px; height: 8px; border-radius: 50%; background: #64748b; display: inline-block; transition: all 0.3s; box-shadow: 0 0 6px rgba(100, 116, 139, 0.4);"></span>
+          <span style="font-size: 15px;">☁️</span>
+          <span id="cloudSyncBtnText">Cloud Sync</span>
+        </button>
+
         <button class="btn-secondary" id="btnCountryProxiesHub" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 13px; font-weight: 600; cursor: pointer;" title="Explore & Test Live Country Proxies (Pakistan, India, USA, UK, Germany, Philippines, Russia, etc.)">
           <span style="font-size: 16px;">🌍</span>
           <span>Country Proxies</span>
@@ -586,9 +592,101 @@
         </div>
       </div>
     </div>
+  <!-- Modal: Real-Time Multi-Device Cloud Sync -->
+  <div class="modal-overlay" id="cloudSyncModal" style="display: none;">
+    <div class="modal-card" style="max-width: 680px; width: 95%;">
+      <div class="modal-header">
+        <div>
+          <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
+            <span style="font-size: 20px;">☁️</span>
+            <span>Real-Time Multi-Device Cloud Sync</span>
+          </h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0 0;">
+            Keep your profiles, proxies, and configurations synchronized in real-time across Windows & Mac ($0/month forever with Google Firebase).
+          </p>
+        </div>
+        <button type="button" class="btn-icon" id="btnCloseCloudSyncModal" style="cursor: pointer;">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px 20px;">
+        <!-- Status & Mode Banner -->
+        <div id="cloudSyncStatusBanner" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div id="cloudSyncBigDot" style="width: 14px; height: 14px; border-radius: 50%; background: #64748b; box-shadow: 0 0 8px rgba(100, 116, 139, 0.5); transition: all 0.3s;"></div>
+            <div>
+              <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <span id="cloudSyncStatusTitle">Offline (Local Workspace)</span>
+                <span id="cloudSyncStatusTag" style="font-size: 10px; text-transform: uppercase; background: rgba(255,255,255,0.08); padding: 2px 7px; border-radius: 4px; color: var(--text-muted);">LOCAL ONLY</span>
+              </div>
+              <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
+                <span id="cloudSyncLastSyncTime">Last sync: Never</span>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" id="btnPushCloudSync" class="btn-secondary" style="font-size: 11.5px; padding: 6px 12px; display: none;" title="Push your current local profiles to the cloud room">
+              📤 Push to Cloud
+            </button>
+            <button type="button" id="btnPullCloudSync" class="btn-secondary" style="font-size: 11.5px; padding: 6px 12px; display: none;" title="Fetch latest profiles from cloud room">
+              📥 Pull from Cloud
+            </button>
+          </div>
+        </div>
+
+        <!-- Room Key & Database Form -->
+        <div style="background: rgba(14, 165, 233, 0.04); border: 1px solid rgba(14, 165, 233, 0.2); border-radius: var(--radius-md); padding: 16px; margin-bottom: 18px;">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-size: 12px; font-weight: 700; color: var(--text-primary); display: flex; justify-content: space-between; align-items: center;">
+              <span>🔑 Sync Room Key (Secret Workspace Name) *</span>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" id="btnGenRoomKey" class="btn-text" style="font-size: 11px; color: var(--accent-cyan); background: transparent; border: none; cursor: pointer; text-decoration: underline;">
+                  🎲 Generate Random
+                </button>
+                <button type="button" id="btnCopyRoomKey" class="btn-text" style="font-size: 11px; color: var(--text-secondary); background: transparent; border: none; cursor: pointer; text-decoration: underline;">
+                  📋 Copy Key
+                </button>
+              </div>
+            </label>
+            <input type="text" id="cloudSyncRoomKey" placeholder="e.g. shadda-vault-491 or my-team-workspace" style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; margin-top: 6px;" required>
+            <span style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px; display: block; line-height: 1.4;">
+              Devices sharing the <strong>exact same Room Key</strong> will automatically synchronize in real-time. Keep this key private.
+            </span>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-size: 12px; font-weight: 700; color: var(--text-primary);">
+              🌐 Firebase Realtime Database URL
+            </label>
+            <input type="url" id="cloudSyncFirebaseUrl" placeholder="https://<your-project>-default-rtdb.firebaseio.com" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-top: 6px;" value="https://user-ananlytics-default-rtdb.firebaseio.com">
+            <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">
+              Pre-configured with free global Firebase endpoint (Ready to use instantly). You can also provide your own personal Firebase DB URL.
+            </span>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 16px;">
+            <button type="button" id="btnSaveCloudSync" class="btn-primary" style="flex: 2; justify-content: center;">
+              <span>⚡ Connect & Start Live Sync</span>
+            </button>
+            <button type="button" id="btnDisconnectCloudSync" class="btn-secondary" style="flex: 1; justify-content: center; display: none; color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
+              <span>Disconnect</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2-Step Multi-Device Guide -->
+        <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 16px;">
+          <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 0 0 10px 0;">
+            📱 How to link your 2nd Device (Laptop / Windows / Mac)
+          </h4>
+          <ol style="margin: 0; padding-left: 20px; font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+            <li>On <strong>Device 1</strong>: Enter a Room Key above and click <strong>"Connect & Start Live Sync"</strong>.</li>
+            <li>On <strong>Device 2</strong>: Open Shadda Anti-Detect, open <strong>Cloud Sync</strong>, enter the <strong>exact same Room Key</strong>, and click <strong>"Connect"</strong>.</li>
+            <li><strong>Done!</strong> Any profile created, updated, or deleted on either device will mirror across both devices instantly in under 100 milliseconds.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
   </div>
-
-
 
   <!-- Modal: Global Country Proxies Hub -->
   <div class="modal-overlay" id="countryProxiesModal" style="display: none;">

@@ -44,6 +44,34 @@ STATIC_DIR = os.path.join(BUNDLE_DIR, 'static')
 
 UPDATE_MANAGER = auto_updater.UpdateManager(ads_manager.load_ads_config, "0.1")
 
+CLOUD_SYNC_CONFIG_FILE = os.path.join(DATA_DIR, 'cloud_sync_config.json')
+DEFAULT_FIREBASE_URL = "https://user-ananlytics-default-rtdb.firebaseio.com"
+
+def load_cloud_sync_config():
+    if os.path.exists(CLOUD_SYNC_CONFIG_FILE):
+        try:
+            with open(CLOUD_SYNC_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                cfg = json.load(f)
+                if isinstance(cfg, dict):
+                    if not cfg.get('firebaseUrl'):
+                        cfg['firebaseUrl'] = DEFAULT_FIREBASE_URL
+                    return cfg
+        except Exception:
+            pass
+    return {
+        "enabled": False,
+        "firebaseUrl": DEFAULT_FIREBASE_URL,
+        "roomKey": "",
+        "lastSync": 0
+    }
+
+def save_cloud_sync_config(cfg):
+    try:
+        with open(CLOUD_SYNC_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(cfg, f, indent=2)
+    except Exception as e:
+        print(f"[!] Warning: failed to save cloud sync config: {e}")
+
 
 class AppHTTPServer(ThreadingHTTPServer):
     allow_reuse_address = True
@@ -175,6 +203,9 @@ class ProfileHandler(BaseHTTPRequestHandler):
 
         if path == '/api/admin-mode':
             return self._send_json({'isAdmin': False})
+
+        if path == '/api/cloud-sync/config':
+            return self._send_json(load_cloud_sync_config())
 
         if path == '/api/profiles':
             profiles = load_db()
@@ -364,6 +395,34 @@ class ProfileHandler(BaseHTTPRequestHandler):
             cc = parts[2].upper() if len(parts) >= 3 else ''
             proxies = country_proxies.verify_country_proxies(cc, max_test=25, force_refresh=True)
             return self._send_json({'success': True, 'proxies': proxies})
+
+        if path == '/api/cloud-sync/config':
+            cfg = load_cloud_sync_config()
+            cfg['enabled'] = bool(body.get('enabled', cfg.get('enabled', False)))
+            if 'firebaseUrl' in body and body['firebaseUrl'].strip():
+                cfg['firebaseUrl'] = body['firebaseUrl'].strip().rstrip('/')
+            if 'roomKey' in body:
+                cfg['roomKey'] = body['roomKey'].strip()
+            if 'lastSync' in body:
+                cfg['lastSync'] = int(body['lastSync'])
+            save_cloud_sync_config(cfg)
+            return self._send_json({'success': True, 'config': cfg})
+
+        if path == '/api/cloud-sync/apply':
+            incoming_profiles = body.get('profiles')
+            if not isinstance(incoming_profiles, list):
+                return self._send_json({'error': 'Profiles list is required'}, status=400)
+            
+            # Save to local DB
+            save_db(incoming_profiles)
+            
+            # Update lastSync timestamp
+            cfg = load_cloud_sync_config()
+            now_ts = int(time.time())
+            cfg['lastSync'] = now_ts
+            save_cloud_sync_config(cfg)
+            
+            return self._send_json({'success': True, 'count': len(incoming_profiles), 'lastSync': now_ts})
 
         return self._send_json({'error': 'Endpoint not found'}, status=404)
 
