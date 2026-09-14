@@ -10,10 +10,12 @@
   // 1. Synchronize Window & Tab Title
   function updateTitle() {
     try {
-      const cur = document.title || "";
+      let cur = document.title || "";
       if (cur) {
-        if (!cur.includes(`[${profileName}]`)) {
-          document.title = cur + suffix;
+        const clean = cur.replace(/\s*—\s*\[.*?\]\s*$/, '').trim();
+        const formatted = clean ? `${clean}${suffix}` : profileName;
+        if (document.title !== formatted) {
+          document.title = formatted;
         }
       } else {
         document.title = profileName;
@@ -31,7 +33,9 @@
           return nativeGet ? nativeGet.call(document) : document.title;
         },
         set: function(val) {
-          const formatted = (val && !val.includes(`[${profileName}]`)) ? (val + suffix) : (val || profileName);
+          const raw = String(val || '');
+          const clean = raw.replace(/\s*—\s*\[.*?\]\s*$/, '').trim();
+          const formatted = clean ? `${clean}${suffix}` : profileName;
           return nativeSet.call(document, formatted);
         },
         configurable: true
@@ -190,11 +194,20 @@
   window.addEventListener('load', ensureInjected);
   ensureInjected();
 
-  const retryInterval = setInterval(() => {
-    if (document.getElementById('shadda-profile-indicator')) {
-      clearInterval(retryInterval);
-    } else {
+  // Fast initial checks
+  let checks = 0;
+  const initialTimer = setInterval(() => {
+    checks++;
+    ensureInjected();
+    if (checks >= 15 || document.getElementById('shadda-profile-indicator')) {
+      clearInterval(initialTimer);
+    }
+  }, 300);
+
+  // Persistent background heartbeat to survive SPA full-page DOM rewrites
+  setInterval(() => {
+    if (!document.getElementById('shadda-profile-indicator')) {
       ensureInjected();
     }
-  }, 400);
+  }, 2000);
 })();

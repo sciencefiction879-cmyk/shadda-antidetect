@@ -4,28 +4,35 @@
   if (window.__SHADDA_AUTOMATION_HUD_INITED__) return;
   window.__SHADDA_AUTOMATION_HUD_INITED__ = true;
 
-  const APP_API = "http://127.0.0.1:5055";
+  let _detectedApiBase = window.__SHADDA_APP_API__ || (window.__SHADDA_API_PORT__ ? `http://127.0.0.1:${window.__SHADDA_API_PORT__}` : "http://127.0.0.1:5055");
   let _lastStepId = null;
   let _isMinimized = false;
   let _hudContainer = null;
   let _cachedProfileId = window.__SHADDA_PROFILE_ID__ || null;
 
   async function fetchActiveState() {
-    try {
-      let url = `${APP_API}/api/automation/active-session`;
-      if (_cachedProfileId) {
-        url = `${APP_API}/api/automation/${_cachedProfileId}/state`;
-      }
-      const res = await fetch(url, { headers: { "X-App-Request": "HUD" } });
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (data && data.profileId) {
-        _cachedProfileId = data.profileId;
-      }
-      return data;
-    } catch (e) {
-      return null;
+    const candidatePorts = window.__SHADDA_API_PORT__ 
+      ? [window.__SHADDA_API_PORT__, 5055, 5056, 5057] 
+      : [5055, 5056, 5057];
+
+    for (const port of candidatePorts) {
+      const base = `http://127.0.0.1:${port}`;
+      try {
+        let url = `${base}/api/automation/active-session`;
+        if (_cachedProfileId) {
+          url = `${base}/api/automation/${_cachedProfileId}/state`;
+        }
+        const res = await fetch(url, { headers: { "X-App-Request": "HUD" } });
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (data && (data.active || data.profileId)) {
+          _detectedApiBase = base;
+          if (data.profileId) _cachedProfileId = data.profileId;
+          return data;
+        }
+      } catch (e) {}
     }
+    return null;
   }
 
   async function sendAction(actionType) {
@@ -36,7 +43,7 @@
         btn.disabled = true;
         btn.textContent = "⏳ Notifying GitHub Actions...";
       }
-      const res = await fetch(`${APP_API}/api/automation/${_cachedProfileId}/action`, {
+      const res = await fetch(`${_detectedApiBase}/api/automation/${_cachedProfileId}/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: actionType || "continue" })

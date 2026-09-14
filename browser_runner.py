@@ -265,12 +265,21 @@ def prepare_profile_extension(user_data_dir, profile, allocated_ip=None, proxy_a
             elif p_proxy_type == 'custom':
                 p_proxy_label = "Custom Proxy"
 
+            api_port = 5055
+            try:
+                import server
+                api_port = getattr(server, 'PORT', 5055)
+            except Exception:
+                pass
+
             p_seed = (int(hashlib.md5(p_id.encode('utf-8')).hexdigest()[:6], 16) % 9999) + 1
 
             header = f"window.__SHADDA_PROFILE_ID__ = '{p_id}';\n"
             header += f"window.__SHADDA_PROFILE_NAME__ = {json.dumps(p_name)};\n"
             header += f"window.__SHADDA_PROFILE_COLOR__ = '{p_color}';\n"
             header += f"window.__SHADDA_PROXY_LABEL__ = {json.dumps(p_proxy_label)};\n"
+            header += f"window.__SHADDA_API_PORT__ = {int(api_port)};\n"
+            header += f"window.__SHADDA_APP_API__ = 'http://127.0.0.1:{int(api_port)}';\n"
 
             content = header + content
             content = content.replace('__PROFILE_TIMEZONE__', tz)
