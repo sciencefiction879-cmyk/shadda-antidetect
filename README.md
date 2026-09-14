@@ -19,13 +19,18 @@
 
 ---
 
-## 📥 Downloads
+## 📥 Downloads & Releases
+
+Official binaries are compiled and published directly via GitHub Actions:
 
 | Platform | Package | Download Link |
 | :--- | :--- | :--- |
-| **macOS (Apple Silicon & Intel)** | `Shadda Anti Detect-0.1.dmg` | [Download macOS DMG](https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.1/Shadda.Anti.Detect-0.1.dmg) |
-| **Windows 10 / 11 (64-bit)** | `Shadda-Anti-Detect.exe` | [Download Windows EXE](https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.1/Shadda-Anti-Detect.exe) |
-| **Windows Portable** | `Shadda-Anti-Detect-Windows-x64.zip` | [Download Windows Portable ZIP](https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.1/Shadda-Anti-Detect-Windows-x64.zip) |
+| **Android Mobile** | `Shadda-Anti-Detect.apk` (Android 7.0 - 15+) | [📲 **Download Android APK**](https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.1/Shadda-Anti-Detect.apk) |
+| **Windows 10 / 11 (64-bit)** | `Shadda-Anti-Detect.exe` (Standalone Executable) | [💻 **Download Windows EXE**](https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.1/Shadda-Anti-Detect.exe) |
+| **Windows Portable** | `Shadda-Anti-Detect-Windows-x64.zip` (Portable ZIP) | [📦 **Download Windows Portable ZIP**](https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.1/Shadda-Anti-Detect-Windows-x64.zip) |
+| **macOS (Apple Silicon & Intel)** | `Shadda-Anti-Detect-0.1.dmg` (Disk Image Installer) | [🍏 **Download macOS DMG**](https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.1/Shadda-Anti-Detect-0.1.dmg) |
+
+👉 **Full Release Details**: [https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/tag/v0.1](https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/tag/v0.1)
 
 ---
 
