@@ -300,7 +300,7 @@ def verify_country_proxies(country_code, max_test=25, force_refresh=False):
     c_meta = COUNTRIES.get(cc, {})
 
     def do_test(item):
-        ok, latency, detected_proto = test_proxy_socket(item['protocol'], item['host'], item['port'])
+        ok, latency, detected_proto = test_proxy_socket(item['protocol'], item['host'], item['port'], timeout=2.0)
         if ok:
             formatted = f"{detected_proto}://{item['host']}:{item['port']}"
             return {

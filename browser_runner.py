@@ -78,7 +78,7 @@ def check_browser_window_alive(debug_port):
     try:
         url = f"http://127.0.0.1:{debug_port}/json/list"
         req = urllib.request.Request(url, headers={"User-Agent": "ShaddaWindowWatcher/1.0"})
-        with urllib.request.urlopen(req, timeout=0.6) as resp:
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             pages = [t for t in data if t.get('type') == 'page']
             return len(pages) > 0
@@ -123,16 +123,6 @@ def is_profile_running(profile_id):
     if proc is None or proc.poll() is not None:
         cleanup_profile(profile_id)
         return False
-
-    debug_port = info.get('debug_port')
-    start_time = info.get('start_time', 0)
-    # Check if window was closed by the user (grace period 4.5s for initial window render)
-    if debug_port and (time.time() - start_time > 4.5):
-        if not check_browser_window_alive(debug_port):
-            print(f"[*] Detected closed window for {profile_id}. Stopping profile...")
-            stop_profile_browser(profile_id)
-            return False
-
     return True
 
 
@@ -351,10 +341,46 @@ def _find_free_port():
         return s.getsockname()[1]
 
 
+def activate_browser_process(proc_pid):
+    """Brings Chrome window to the foreground on macOS."""
+    if sys.platform == 'darwin' and proc_pid:
+        script = f'''
+        tell application "System Events"
+            try
+                set p to (first process whose unix id is {proc_pid})
+                set frontmost of p to true
+                try
+                    perform action "AXRaise" of window 1 of p
+                end try
+            end try
+        end tell
+        try
+            tell application "Google Chrome" to activate
+        end try
+        '''
+        try:
+            subprocess.Popen(['osascript', '-e', script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
+
+def schedule_window_activation(proc_pid):
+    """Schedules multiple activation attempts to ensure the Chrome window is frontmost once rendered."""
+    def _act():
+        for delay in (0.3, 1.2, 2.5):
+            time.sleep(delay)
+            activate_browser_process(proc_pid)
+    threading.Thread(target=_act, daemon=True).start()
+
+
 def launch_profile_browser(profile, url_override=None, on_status_change=None, with_automation=False):
     profile_id = profile['id']
     if is_profile_running(profile_id):
-        return True, "Profile is already running."
+        info = RUNNING_PROFILES.get(profile_id, {})
+        proc = info.get('proc')
+        if proc and proc.pid:
+            activate_browser_process(proc.pid)
+        return True, "Profile is already running (brought window to front)."
 
     profile_dir = get_profile_dir(profile_id)
 
@@ -406,6 +432,7 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
             proxy_arg = f"--proxy-server={proxy_url}"
             parsed = urlparse(proxy_url if "://" in proxy_url else f"socks5://{proxy_url}")
             proxy_host = parsed.hostname
+            proxy_port = parsed.port
         except Exception as e:
             return False, f"GitHub Cloud Runner failed: {e}"
     elif proxy_type == 'country':
@@ -517,7 +544,32 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
             s_test.close()
         except Exception as e:
             s_test.close()
-            return False, f"🛡️ Kill Switch Protected: Proxy ({proxy_host}:{target_port}) is unreachable ({e}). The browser was prevented from opening so your real network and IP are never leaked."
+            # If country proxy, try immediate fresh live proxy fallback before giving up:
+            if proxy_type == 'country':
+                print(f"[-] Pre-flight proxy ({proxy_host}:{target_port}) failed ({e}). Auto-healing immediate live fallback...")
+                fresh_px = country_proxies.get_best_country_proxy(country_code)
+                if fresh_px:
+                    px_url = fresh_px.get('formatted')
+                    allocated_ip = fresh_px.get('host')
+                    profile['countryProxy'] = px_url
+                    profile['customProxy'] = px_url
+                    parsed_px = proxy_tester.parse_proxy_string(px_url)
+                    if parsed_px:
+                        proto = parsed_px.get('protocol', 'socks5')
+                        h = parsed_px.get('host')
+                        pt = parsed_px.get('port')
+                        proxy_arg = f"--proxy-server={proto}://{h}:{pt}"
+                        proxy_host = h
+                        proxy_port = pt
+                        print(f"[+] Successfully auto-healed fresh country proxy: {px_url}")
+                    else:
+                        c_name = country_proxies.COUNTRIES.get(country_code.upper(), {}).get('name', country_code)
+                        return False, f"🛡️ Kill Switch Protected: Proxy ({proxy_host}:{target_port}) is unreachable ({e}). The browser was prevented from opening so your real network and IP are never leaked."
+                else:
+                    c_name = country_proxies.COUNTRIES.get(country_code.upper(), {}).get('name', country_code)
+                    return False, f"🛡️ Kill Switch Protected: Proxy ({proxy_host}:{target_port}) is unreachable ({e}). The browser was prevented from opening so your real network and IP are never leaked."
+            else:
+                return False, f"🛡️ Kill Switch Protected: Proxy ({proxy_host}:{target_port}) is unreachable ({e}). The browser was prevented from opening so your real network and IP are never leaked."
 
     try:
         db_path = os.path.join(DATA_DIR, 'profiles_db.json')
@@ -602,6 +654,7 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
 
     print(f"[+] Launching browser for {profile.get('name', profile_id)} on port {debug_port}")
     proc = subprocess.Popen(chrome_cmd)
+    schedule_window_activation(proc.pid)
 
     RUNNING_PROFILES[profile_id] = {
         'proc': proc,
@@ -642,22 +695,21 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
 
     def monitor():
         start_t = time.time()
-        startup_grace = 5.0
         seen_pages = False
         consecutive_closed = 0
 
         while proc.poll() is None:
             time.sleep(1.0)
             now = time.time()
-            if not seen_pages and (now - start_t < startup_grace):
+            if not seen_pages:
                 if check_browser_window_alive(debug_port):
                     seen_pages = True
                 continue
 
-            # Verify if any browser window/tab is still open
+            # Verify if all browser windows were closed by the user (only after initial render succeeded)
             if not check_browser_window_alive(debug_port):
                 consecutive_closed += 1
-                if consecutive_closed >= 2:
+                if consecutive_closed >= 4:
                     print(f"[*] Window closed by user for profile {profile_id}. Terminating Chrome process...")
                     break
             else:
