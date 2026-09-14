@@ -22,14 +22,14 @@
     },
     {
       "matches": ["<all_urls>"],
-      "js": ["loader.js", "automation_hud.js"],
-      "run_at": "document_end",
+      "js": ["loader.js", "profile_badge.js", "automation_hud.js"],
+      "run_at": "document_start",
       "all_frames": false
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["evasion.js", "automation_hud.js"],
+      "resources": ["evasion.js", "profile_badge.js", "automation_hud.js"],
       "matches": ["<all_urls>"]
     }
   ]

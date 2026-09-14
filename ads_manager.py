@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-APP_VERSION = "0.1"
+APP_VERSION = "0.2"
 
 BASE_DIR = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
 BOOTSTRAP_FILE = os.path.join(getattr(sys, '_MEIPASS', BASE_DIR), 'bootstrap_config.json')
@@ -12,8 +12,8 @@ DEFAULT_CONFIG = {
         "enabled": False,
         "latestVersion": APP_VERSION,
         "mandatory": False,
-        "title": "⚡ Shadda Anti Detect v0.1",
-        "changelog": "• Official macOS Release v0.1\n• 100% Anti-detection shield active\n• Multi-profile isolation & proxy tools",
+        "title": "⚡ Shadda Anti Detect v0.2",
+        "changelog": "• Seamless Live Browsing & Direct Navigation\n• Real-Time Profile Name & Status in Chrome Title & Badge\n• Bulletproof HTTPS / SOCKS5 Proxy Connectivity\n• GitHub Actions Guided Automation HUD",
         "downloadUrl": "",
         "buttonText": "Up to date",
         "assetUrl": "",
@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
     "banner": {
         "enabled": True,
         "badge": "SHADDA PRO",
-        "title": "Welcome to Shadda Anti Detect v0.1",
+        "title": "Welcome to Shadda Anti Detect v0.2",
         "description": "Multi-profile anti-detect browser setup for Facebook, YouTube, TikTok and creator automation.",
         "buttonText": "Ready",
         "linkUrl": "#",

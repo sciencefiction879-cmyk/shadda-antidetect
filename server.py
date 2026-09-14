@@ -46,7 +46,7 @@ if not os.path.exists(github_client.ACCOUNTS_FILE):
 DB_FILE = os.path.join(DATA_DIR, 'profiles_db.json')
 STATIC_DIR = os.path.join(BUNDLE_DIR, 'static')
 
-UPDATE_MANAGER = auto_updater.UpdateManager(ads_manager.load_ads_config, "0.1")
+UPDATE_MANAGER = auto_updater.UpdateManager(ads_manager.load_ads_config, "0.2")
 
 CLOUD_SYNC_CONFIG_FILE = os.path.join(DATA_DIR, 'cloud_sync_config.json')
 DEFAULT_FIREBASE_URL = "https://user-ananlytics-default-rtdb.firebaseio.com"
@@ -132,7 +132,7 @@ def fetch_cloud_user(username_or_email: str):
         cfg = load_cloud_sync_config()
         fb_url = (cfg.get('firebaseUrl') or DEFAULT_FIREBASE_URL).rstrip('/')
         url = f"{fb_url}/users/{safe_key}.json"
-        req = urllib.request.Request(url, headers={'User-Agent': 'ShaddaAntiDetect/0.1'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'ShaddaAntiDetect/0.2'})
         with urllib.request.urlopen(req, timeout=5) as resp:
             raw = resp.read().decode('utf-8')
             if raw and raw != 'null':
@@ -362,7 +362,7 @@ class ProfileHandler(BaseHTTPRequestHandler):
         body = json.loads(raw_body) if raw_body else {}
 
         if path in ('/api/update/download', '/api/update/apply'):
-            return self._send_json({'success': True, 'message': 'Running latest version 0.1'})
+            return self._send_json({'success': True, 'message': 'Running latest version 0.2'})
 
         if path == '/api/profiles':
             profiles = load_db()
@@ -752,7 +752,7 @@ class ProfileHandler(BaseHTTPRequestHandler):
 def run_server():
     server = create_app_server()
     print("=" * 60)
-    print("  🚀 Shadda Anti Detect v0.1 running at:")
+    print("  🚀 Shadda Anti Detect v0.2 running at:")
     print(f"     http://127.0.0.1:{PORT}")
     print("=" * 60)
 

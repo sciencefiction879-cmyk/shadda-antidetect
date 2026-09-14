@@ -19,6 +19,10 @@ def parse_proxy_string(raw_str):
         p = proto_match.group(1).lower()
         if p in ('socks5', 'socks4', 'http', 'https'):
             protocol = p
+        elif p.startswith('socks5'):
+            protocol = 'socks5'
+        elif p.startswith('socks4'):
+            protocol = 'socks4'
         raw = raw[proto_match.end():].strip()
 
     if '@' not in raw:

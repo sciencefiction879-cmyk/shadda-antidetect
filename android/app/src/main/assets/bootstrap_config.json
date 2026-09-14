@@ -1,10 +1,10 @@
 {
   "updates": {
     "enabled": false,
-    "latestVersion": "0.1",
+    "latestVersion": "0.2",
     "mandatory": false,
-    "title": "⚡ Anti-Detect Studio v0.1",
-    "changelog": "• Official macOS Release\n• 100% Anti-detection shield active",
+    "title": "⚡ Anti-Detect Studio v0.2",
+    "changelog": "• Seamless Live Browsing & Direct Navigation\n• Real-Time Profile Name & Status in Chrome Title & Badge\n• Bulletproof HTTPS / SOCKS5 Proxy Connectivity\n• GitHub Actions Guided Automation HUD",
     "downloadUrl": "",
     "buttonText": "Up to Date",
     "assetUrl": "",

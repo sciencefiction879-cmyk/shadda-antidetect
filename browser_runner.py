@@ -183,6 +183,55 @@ def launch_github_runner(profile_id, account_id=None):
     return px, ip, run_id, token, repo
 
 
+def configure_chrome_profile_identity(profile_dir, profile_name, color=None):
+    try:
+        os.makedirs(profile_dir, exist_ok=True)
+        local_state_file = os.path.join(profile_dir, 'Local State')
+        local_state = {}
+        if os.path.exists(local_state_file):
+            try:
+                with open(local_state_file, 'r', encoding='utf-8') as f:
+                    local_state = json.load(f)
+            except Exception:
+                local_state = {}
+
+        if not isinstance(local_state, dict):
+            local_state = {}
+        if 'profile' not in local_state:
+            local_state['profile'] = {}
+        if 'info_cache' not in local_state['profile']:
+            local_state['profile']['info_cache'] = {}
+        if 'Default' not in local_state['profile']['info_cache']:
+            local_state['profile']['info_cache']['Default'] = {}
+
+        local_state['profile']['info_cache']['Default']['name'] = profile_name
+        local_state['profile']['info_cache']['Default']['user_name'] = profile_name
+        local_state['profile']['info_cache']['Default']['is_using_default_name'] = False
+
+        with open(local_state_file, 'w', encoding='utf-8') as f:
+            json.dump(local_state, f, indent=2)
+
+        default_dir = os.path.join(profile_dir, 'Default')
+        os.makedirs(default_dir, exist_ok=True)
+        pref_file = os.path.join(default_dir, 'Preferences')
+        prefs = {}
+        if os.path.exists(pref_file):
+            try:
+                with open(pref_file, 'r', encoding='utf-8') as f:
+                    prefs = json.load(f)
+            except Exception:
+                prefs = {}
+        if not isinstance(prefs, dict):
+            prefs = {}
+        if 'profile' not in prefs:
+            prefs['profile'] = {}
+        prefs['profile']['name'] = profile_name
+        with open(pref_file, 'w', encoding='utf-8') as f:
+            json.dump(prefs, f, indent=2)
+    except Exception as e:
+        print(f"[!] Warning: failed to configure Chrome profile identity: {e}")
+
+
 def prepare_profile_extension(user_data_dir, profile, allocated_ip=None, proxy_auth=None):
     profile_ext_dir = os.path.join(user_data_dir, 'anti_detect_extension')
     os.makedirs(profile_ext_dir, exist_ok=True)
@@ -205,15 +254,53 @@ def prepare_profile_extension(user_data_dir, profile, allocated_ip=None, proxy_a
                 content = f.read()
 
             p_id = str(profile.get('id', 'default'))
+            p_name = profile.get('name') or f"Profile {p_id[:8]}"
+            p_color = profile.get('color', '#0ea5e9')
+            p_proxy_type = profile.get('proxyType', 'none')
+            p_proxy_label = "Direct"
+            if p_proxy_type == 'country':
+                p_proxy_label = profile.get('countryName') or profile.get('countryCode') or 'Country Proxy'
+            elif p_proxy_type == 'github':
+                p_proxy_label = "GitHub Cloud IP"
+            elif p_proxy_type == 'custom':
+                p_proxy_label = "Custom Proxy"
+
             p_seed = (int(hashlib.md5(p_id.encode('utf-8')).hexdigest()[:6], 16) % 9999) + 1
 
-            content = f"window.__SHADDA_PROFILE_ID__ = '{p_id}';\n" + content
+            header = f"window.__SHADDA_PROFILE_ID__ = '{p_id}';\n"
+            header += f"window.__SHADDA_PROFILE_NAME__ = {json.dumps(p_name)};\n"
+            header += f"window.__SHADDA_PROFILE_COLOR__ = '{p_color}';\n"
+            header += f"window.__SHADDA_PROXY_LABEL__ = {json.dumps(p_proxy_label)};\n"
+
+            content = header + content
             content = content.replace('__PROFILE_TIMEZONE__', tz)
             content = content.replace('__PROFILE_ALLOCATED_IP__', allocated_ip or '')
             content = content.replace('__PROFILE_SEED__', str(p_seed))
 
             with open(evasion_path, 'w', encoding='utf-8') as f:
                 f.write(content)
+
+            badge_path = os.path.join(profile_ext_dir, 'profile_badge.js')
+            if os.path.exists(badge_path):
+                try:
+                    with open(badge_path, 'r', encoding='utf-8') as bf:
+                        b_content = bf.read()
+                    b_content = header + b_content
+                    with open(badge_path, 'w', encoding='utf-8') as bf:
+                        bf.write(b_content)
+                except Exception as be:
+                    print(f"[!] Failed to customize profile_badge.js: {be}")
+
+            hud_path = os.path.join(profile_ext_dir, 'automation_hud.js')
+            if os.path.exists(hud_path):
+                try:
+                    with open(hud_path, 'r', encoding='utf-8') as hf:
+                        h_content = hf.read()
+                    h_content = header + h_content
+                    with open(hud_path, 'w', encoding='utf-8') as hf:
+                        hf.write(h_content)
+                except Exception as he:
+                    print(f"[!] Failed to customize automation_hud.js: {he}")
         except Exception as e:
             print(f"[!] Failed to customize evasion.js: {e}")
 
@@ -354,6 +441,12 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
                 except Exception as e:
                     print(f"[!] Warning: failed to lock country proxy: {e}")
 
+        if not px_url:
+            kill_switch = profile.get('killSwitch', True)
+            if kill_switch:
+                c_name = country_proxies.COUNTRIES.get(country_code.upper(), {}).get('name', country_code)
+                return False, f"🛡️ Kill Switch Protected: No verified live HTTPS proxy was found for {c_name} ({country_code}). Your real IP is protected from leaking. Please select another country (e.g. US, DE, GB) or switch to Direct."
+
         if px_url:
             parsed_px = proxy_tester.parse_proxy_string(px_url)
             if parsed_px:
@@ -444,6 +537,8 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
     except Exception as e:
         print(f"[!] Warning: failed to save allocated IP/proxy to db: {e}")
 
+    configure_chrome_profile_identity(profile_dir, profile.get('name') or f"Profile {profile_id[:8]}", profile.get('color'))
+
     ext_dir = prepare_profile_extension(profile_dir, profile, allocated_ip=allocated_ip, proxy_auth=proxy_auth)
 
     debug_port = _find_free_port()
@@ -452,8 +547,7 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
     if not os.path.exists(browser_bin):
         return False, f"Browser executable not found: {browser_bin}. Please install Google Chrome or Brave."
 
-    # Using about:blank at startup so stealth injector attaches before page loads
-    target_start_url = 'about:blank' if (stealth_injector and stealth_injector.available()) else (start_url or 'about:blank')
+    target_start_url = start_url or 'https://www.google.com'
 
     chrome_cmd = [
         browser_bin,
@@ -490,7 +584,7 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
 
     if proxy_arg:
         chrome_cmd.append(proxy_arg)
-        chrome_cmd.append("--proxy-bypass-list=<-loopback>")
+        chrome_cmd.append("--proxy-bypass-list=localhost;127.0.0.1;*.local")
         chrome_cmd.append("--force-webrtc-ip-handling-policy=disable_non_proxied_udp")
         chrome_cmd.append("--enforce-webrtc-ip-permission-check")
         chrome_cmd.append("--disable-direct-sockets")
@@ -519,6 +613,14 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
                     evasion_code = ef.read()
             except Exception as e:
                 print(f"[!] Failed to read evasion script: {e}")
+
+        badge_js_path = os.path.join(ext_dir, 'profile_badge.js')
+        if os.path.exists(badge_js_path):
+            try:
+                with open(badge_js_path, 'r', encoding='utf-8') as bf:
+                    evasion_code += "\n;\n" + bf.read()
+            except Exception as e:
+                print(f"[!] Failed to append profile_badge script: {e}")
 
         injector = stealth_injector.StealthInjector(
             port=debug_port,

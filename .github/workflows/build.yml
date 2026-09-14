@@ -18,10 +18,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.14
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
@@ -39,6 +39,9 @@ jobs:
             --add-data "github_client.pyc;." `
             --add-data "github_accounts.json;." `
             --hidden-import "country_proxies" `
+            --hidden-import "automation_controller" `
+            --hidden-import "browser_runner" `
+            --hidden-import "stealth_injector" `
             --hidden-import "github_client" `
             --hidden-import "webview" `
             --hidden-import "websocket" `
@@ -55,6 +58,9 @@ jobs:
             --add-data "github_client.pyc;." `
             --add-data "github_accounts.json;." `
             --hidden-import "country_proxies" `
+            --hidden-import "automation_controller" `
+            --hidden-import "browser_runner" `
+            --hidden-import "stealth_injector" `
             --hidden-import "github_client" `
             --hidden-import "webview" `
             --hidden-import "websocket" `
@@ -81,8 +87,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          tag_name: v0.1
-          name: "Shadda Anti Detect v0.1"
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Shadda Anti Detect v0.2' }}
           files: |
             dist/Shadda-Anti-Detect.exe
             dist/Shadda-Anti-Detect-Windows-x64.zip
@@ -137,11 +143,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          tag_name: v0.1
-          name: "Shadda Anti Detect v0.1"
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Shadda Anti Detect v0.2' }}
           files: dist/Shadda-Anti-Detect.apk
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

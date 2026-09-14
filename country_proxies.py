@@ -133,23 +133,19 @@ def test_proxy_socket(protocol, host, port, timeout=3.5):
             resp = s.recv(2)
             if len(resp) < 2 or resp[0] != 5 or resp[1] != 0:
                 return False, None, 'socks5'
-            # 2. Tunnel connect to a lightweight reliable endpoint
-            target_host = b'api.ipify.org'
-            connect_pkt = b'\x05\x01\x00\x03' + bytes([len(target_host)]) + target_host + (80).to_bytes(2, 'big')
+            # 2. Tunnel connect to HTTPS port 443
+            target_host = b'www.google.com'
+            connect_pkt = b'\x05\x01\x00\x03' + bytes([len(target_host)]) + target_host + (443).to_bytes(2, 'big')
             s.sendall(connect_pkt)
             conn_resp = s.recv(10)
             if len(conn_resp) < 4 or conn_resp[1] != 0:
-                return False, None, 'socks5'
-            # 3. Verify actual HTTP response data passes through tunnel
-            s.sendall(b'GET / HTTP/1.1\r\nHost: api.ipify.org\r\nConnection: close\r\n\r\n')
-            data_resp = s.recv(128)
-            if not data_resp or b'HTTP' not in data_resp:
                 return False, None, 'socks5'
             latency = max(1, int((time.time() - start) * 1000))
             return True, latency, 'socks5'
 
         if proto == 'socks4':
-            s.sendall(b'\x04\x01\x00\x50\x08\x08\x08\x08\x00')
+            # SOCKS4 connect to port 443
+            s.sendall(b'\x04\x01\x01\xbb\x08\x08\x08\x08\x00')
             resp = s.recv(8)
             if len(resp) >= 2 and resp[1] == 90:
                 latency = max(1, int((time.time() - start) * 1000))
@@ -157,34 +153,15 @@ def test_proxy_socket(protocol, host, port, timeout=3.5):
             return False, None, 'socks4'
 
         # Default / HTTP / HTTPS proxy check
-        # 1. Test HTTP CONNECT
-        s.sendall(b'CONNECT api.ipify.org:80 HTTP/1.1\r\nHost: api.ipify.org:80\r\n\r\n')
+        # Must support HTTPS CONNECT tunnel to port 443
+        s.sendall(b'CONNECT www.google.com:443 HTTP/1.1\r\nHost: www.google.com:443\r\nProxy-Connection: keep-alive\r\nUser-Agent: Mozilla/5.0\r\n\r\n')
         resp = s.recv(256)
         if b'407' in resp or b'401' in resp or b'403' in resp:
-            # Requires authentication — strictly reject
+            # Requires authentication or blocked — strictly reject
             return False, None, 'http'
-        if b'HTTP' in resp and (b'200' in resp or b'Connection established' in resp):
-            s.sendall(b'GET / HTTP/1.1\r\nHost: api.ipify.org\r\nConnection: close\r\n\r\n')
-            data_resp = s.recv(128)
-            if data_resp and b'HTTP' in data_resp:
-                latency = max(1, int((time.time() - start) * 1000))
-                return True, latency, 'http'
-
-        # 2. If CONNECT was not supported, test standard HTTP GET
-        try:
-            s.close()
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(timeout)
-            s.connect((host, int(port)))
-            s.sendall(b'GET http://api.ipify.org HTTP/1.1\r\nHost: api.ipify.org\r\nConnection: close\r\n\r\n')
-            resp2 = s.recv(256)
-            if b'407' in resp2 or b'401' in resp2 or b'403' in resp2:
-                return False, None, 'http'
-            if b'HTTP' in resp2 and b'200' in resp2:
-                latency = max(1, int((time.time() - start) * 1000))
-                return True, latency, 'http'
-        except Exception:
-            pass
+        if b'HTTP' in resp and (b' 200' in resp or b'Connection established' in resp or b'Connection Established' in resp):
+            latency = max(1, int((time.time() - start) * 1000))
+            return True, latency, 'http'
 
         return False, None, 'http'
     except Exception:
@@ -193,6 +170,7 @@ def test_proxy_socket(protocol, host, port, timeout=3.5):
         try:
             s.close()
         except Exception:
+            pass
             pass
 
 
@@ -367,8 +345,15 @@ def verify_country_proxies(country_code, max_test=25, force_refresh=False):
 def get_best_country_proxy(country_code):
     cc = country_code.upper()
     proxies = verify_country_proxies(cc, max_test=15)
-    if proxies:
-        return proxies[0]
+    for px in proxies:
+        ok, latency, _ = test_proxy_socket(px.get('protocol'), px.get('host'), px.get('port'), timeout=1.8)
+        if ok:
+            px['latencyMs'] = latency
+            return px
+    # If all cached proxies failed, force fresh verification
+    fresh = verify_country_proxies(cc, max_test=25, force_refresh=True)
+    if fresh:
+        return fresh[0]
     return None
 
 

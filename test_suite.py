@@ -163,5 +163,44 @@ class ComprehensiveSystemTest(unittest.TestCase):
         # Clean up session
         automation_controller.stop_automation_session(pid)
 
+    def test_06_profile_launch_and_close_restoration(self):
+        """Test profile launching, running detection, and clean button restoration on close"""
+        base = f"http://127.0.0.1:{self.test_port}"
+        pid = "test_window_close_pid"
+        prof = {
+            'id': pid,
+            'name': 'Close Detect Profile',
+            'proxyType': 'none',
+            'startUrl': 'https://example.com'
+        }
+        
+        # Launch browser
+        ok, msg = browser_runner.launch_profile_browser(prof, url_override='https://example.com')
+        self.assertTrue(ok)
+        self.assertTrue(browser_runner.is_profile_running(pid))
+        
+        # Check via API
+        req = urllib.request.Request(f"{base}/api/profiles")
+        with urllib.request.urlopen(req) as resp:
+            profiles = json.loads(resp.read().decode('utf-8'))
+            for p in profiles:
+                if p.get('id') == pid:
+                    self.assertTrue(p.get('isRunning'))
+
+        # Terminate / Stop browser
+        stopped = browser_runner.stop_profile_browser(pid)
+        self.assertTrue(stopped)
+        time.sleep(1.0)
+        self.assertFalse(browser_runner.is_profile_running(pid))
+
+        # Check API status restored
+        req2 = urllib.request.Request(f"{base}/api/profiles")
+        with urllib.request.urlopen(req2) as resp:
+            profiles = json.loads(resp.read().decode('utf-8'))
+            for p in profiles:
+                if p.get('id') == pid:
+                    self.assertFalse(p.get('isRunning'))
+
+
 if __name__ == '__main__':
     unittest.main()

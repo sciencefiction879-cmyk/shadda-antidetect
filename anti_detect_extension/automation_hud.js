@@ -123,7 +123,8 @@
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${isWaiting ? '#f59e0b' : '#10b981'}; box-shadow: 0 0 8px ${isWaiting ? '#f59e0b' : '#10b981'}; animation: pulse 2s infinite;"></span>
             <strong style="font-size: 12px; letter-spacing: 0.3px; color: #f8fafc; display: flex; align-items: center; gap: 6px;">
-              <span>🤖 GitHub Actions Engine</span>
+              <span>🤖 GitHub Actions</span>
+              <span style="font-size: 11px; font-weight: 600; color: #e2e8f0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">👤 ${window.__SHADDA_PROFILE_NAME__ || state.profileName || state.profileId || 'Profile'}</span>
               <span style="font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3);">${state.githubRunId || 'Running'}</span>
             </strong>
           </div>
