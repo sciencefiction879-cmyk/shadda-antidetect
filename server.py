@@ -7,6 +7,9 @@ import subprocess
 import threading
 import time
 import socket
+import hashlib
+import secrets
+import urllib.request
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
@@ -71,6 +74,90 @@ def save_cloud_sync_config(cfg):
             json.dump(cfg, f, indent=2)
     except Exception as e:
         print(f"[!] Warning: failed to save cloud sync config: {e}")
+
+
+USERS_DB_FILE = os.path.join(DATA_DIR, 'users_db.json')
+SESSION_FILE = os.path.join(DATA_DIR, 'session_config.json')
+
+def hash_password(password: str, salt: str) -> str:
+    return hashlib.sha256((password + ":" + salt).encode('utf-8')).hexdigest()
+
+def load_users() -> list:
+    if os.path.exists(USERS_DB_FILE):
+        try:
+            with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
+        except Exception:
+            pass
+    return []
+
+def save_users(users: list):
+    try:
+        with open(USERS_DB_FILE, 'w', encoding='utf-8') as f:
+            json.dump(users, f, indent=2)
+    except Exception as e:
+        print(f"[!] Warning: failed to save users: {e}")
+
+def get_session():
+    if os.path.exists(SESSION_FILE):
+        try:
+            with open(SESSION_FILE, 'r', encoding='utf-8') as f:
+                sess = json.load(f)
+                if isinstance(sess, dict) and sess.get('token'):
+                    return sess
+        except Exception:
+            pass
+    return None
+
+def save_session(sess):
+    try:
+        if sess is None:
+            if os.path.exists(SESSION_FILE):
+                os.remove(SESSION_FILE)
+        else:
+            with open(SESSION_FILE, 'w', encoding='utf-8') as f:
+                json.dump(sess, f, indent=2)
+    except Exception as e:
+        print(f"[!] Warning: failed to write session: {e}")
+
+def fetch_cloud_user(username_or_email: str):
+    try:
+        raw_key = username_or_email.lower().strip()
+        safe_key = "".join(c for c in raw_key if c.isalnum() or c in ('_', '-'))
+        if not safe_key:
+            return None
+        cfg = load_cloud_sync_config()
+        fb_url = (cfg.get('firebaseUrl') or DEFAULT_FIREBASE_URL).rstrip('/')
+        url = f"{fb_url}/users/{safe_key}.json"
+        req = urllib.request.Request(url, headers={'User-Agent': 'ShaddaAntiDetect/0.1'})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            raw = resp.read().decode('utf-8')
+            if raw and raw != 'null':
+                data = json.loads(raw)
+                if isinstance(data, dict) and data.get('username'):
+                    return data
+    except Exception as e:
+        pass
+    return None
+
+def save_cloud_user(user_record: dict):
+    try:
+        username = user_record.get('username', '').lower().strip()
+        safe_key = "".join(c for c in username if c.isalnum() or c in ('_', '-'))
+        if not safe_key:
+            return False
+        cfg = load_cloud_sync_config()
+        fb_url = (cfg.get('firebaseUrl') or DEFAULT_FIREBASE_URL).rstrip('/')
+        url = f"{fb_url}/users/{safe_key}.json"
+        body = json.dumps(user_record).encode('utf-8')
+        req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json'}, method='PUT')
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return resp.status in (200, 204)
+    except Exception as e:
+        pass
+    return False
 
 
 class AppHTTPServer(ThreadingHTTPServer):
@@ -194,6 +281,20 @@ class ProfileHandler(BaseHTTPRequestHandler):
                 return self._send_json({'error': 'Account not found'}, status=404)
             v = github_client.verify_token(acc.get('token', ''))
             return self._send_json(v)
+
+        if path == '/api/auth/session':
+            sess = get_session()
+            if sess and sess.get('username'):
+                return self._send_json({
+                    'authenticated': True,
+                    'user': {
+                        'id': sess.get('userId', ''),
+                        'username': sess.get('username', ''),
+                        'email': sess.get('email', ''),
+                        'workspaceId': sess.get('workspaceId', 'ws_' + sess.get('username', ''))
+                    }
+                })
+            return self._send_json({'authenticated': False, 'user': None})
 
         if path == '/api/ads':
             return self._send_json(ads_manager.display_config())
@@ -423,6 +524,153 @@ class ProfileHandler(BaseHTTPRequestHandler):
             save_cloud_sync_config(cfg)
             
             return self._send_json({'success': True, 'count': len(incoming_profiles), 'lastSync': now_ts})
+
+        if path == '/api/auth/register':
+            username = (body.get('username') or '').strip()
+            email = (body.get('email') or '').strip().lower()
+            password = body.get('password') or ''
+
+            if len(username) < 3 or len(username) > 30:
+                return self._send_json({'error': 'Username must be between 3 and 30 characters.'}, status=400)
+            if not all(c.isalnum() or c in ('_', '-') for c in username):
+                return self._send_json({'error': 'Username can only contain letters, numbers, hyphens, and underscores.'}, status=400)
+            if not email or '@' not in email or '.' not in email:
+                return self._send_json({'error': 'Please enter a valid email address.'}, status=400)
+            if len(password) < 6:
+                return self._send_json({'error': 'Password must be at least 6 characters.'}, status=400)
+
+            users = load_users()
+            for u in users:
+                if u.get('username', '').lower() == username.lower():
+                    return self._send_json({'error': f'Username "{username}" is already taken.'}, status=409)
+                if u.get('email', '').lower() == email:
+                    return self._send_json({'error': f'Email "{email}" is already registered.'}, status=409)
+
+            # Check Firebase cloud user
+            cloud_existing = fetch_cloud_user(username)
+            if cloud_existing:
+                return self._send_json({'error': f'Username "{username}" is already taken on Cloud.'}, status=409)
+
+            salt = secrets.token_hex(16)
+            pwd_hash = hash_password(password, salt)
+            uid = str(uuid.uuid4())[:8]
+            clean_uname = "".join(c for c in username.lower() if c.isalnum() or c in ('_', '-'))
+            ws_id = f"ws_{clean_uname}"
+
+            user_record = {
+                'id': uid,
+                'username': username,
+                'email': email,
+                'salt': salt,
+                'passwordHash': pwd_hash,
+                'workspaceId': ws_id,
+                'createdAt': int(time.time())
+            }
+
+            users.append(user_record)
+            save_users(users)
+            save_cloud_user(user_record)
+
+            token = secrets.token_hex(32)
+            session_data = {
+                'token': token,
+                'userId': uid,
+                'username': username,
+                'email': email,
+                'workspaceId': ws_id,
+                'loginAt': int(time.time())
+            }
+            save_session(session_data)
+
+            # Automatically bind Cloud Sync to user workspace
+            cfg = load_cloud_sync_config()
+            cfg['enabled'] = True
+            cfg['roomKey'] = ws_id
+            save_cloud_sync_config(cfg)
+
+            return self._send_json({
+                'success': True,
+                'user': {
+                    'id': uid,
+                    'username': username,
+                    'email': email,
+                    'workspaceId': ws_id
+                },
+                'token': token
+            })
+
+        if path == '/api/auth/login':
+            identifier = (body.get('usernameOrEmail') or '').strip()
+            password = body.get('password') or ''
+            remember_me = bool(body.get('rememberMe', True))
+
+            if not identifier or not password:
+                return self._send_json({'error': 'Please enter both Username/Email and Password.'}, status=400)
+
+            users = load_users()
+            matched_user = None
+            for u in users:
+                if u.get('username', '').lower() == identifier.lower() or u.get('email', '').lower() == identifier.lower():
+                    matched_user = u
+                    break
+
+            # If not local, search cloud
+            if not matched_user:
+                cloud_user = fetch_cloud_user(identifier)
+                if cloud_user:
+                    matched_user = cloud_user
+                    if not any(u.get('username', '').lower() == cloud_user.get('username', '').lower() for u in users):
+                        users.append(cloud_user)
+                        save_users(users)
+
+            if not matched_user:
+                return self._send_json({'error': 'Account not found. Please check your username/email or create an account.'}, status=404)
+
+            salt = matched_user.get('salt', '')
+            expected_hash = matched_user.get('passwordHash', '')
+            if hash_password(password, salt) != expected_hash:
+                return self._send_json({'error': 'Incorrect password. Please try again.'}, status=401)
+
+            uid = matched_user.get('id', '')
+            uname = matched_user.get('username', '')
+            email = matched_user.get('email', '')
+            ws_id = matched_user.get('workspaceId') or f"ws_{uname.lower()}"
+
+            token = secrets.token_hex(32)
+            session_data = {
+                'token': token,
+                'userId': uid,
+                'username': uname,
+                'email': email,
+                'workspaceId': ws_id,
+                'loginAt': int(time.time()),
+                'rememberMe': remember_me
+            }
+            if remember_me:
+                save_session(session_data)
+            else:
+                save_session(None)
+
+            # Auto-bind Cloud Sync to user workspace
+            cfg = load_cloud_sync_config()
+            cfg['enabled'] = True
+            cfg['roomKey'] = ws_id
+            save_cloud_sync_config(cfg)
+
+            return self._send_json({
+                'success': True,
+                'user': {
+                    'id': uid,
+                    'username': uname,
+                    'email': email,
+                    'workspaceId': ws_id
+                },
+                'token': token
+            })
+
+        if path == '/api/auth/logout':
+            save_session(None)
+            return self._send_json({'success': True})
 
         return self._send_json({'error': 'Endpoint not found'}, status=404)
 
