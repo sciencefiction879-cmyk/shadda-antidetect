@@ -12,6 +12,9 @@ if sys.platform == 'darwin':
 else:
     DATA_DIR = BASE_DIR
 
+if os.path.exists(os.path.join(DATA_DIR, 'github_accounts.json')):
+    github_client.ACCOUNTS_FILE = os.path.join(DATA_DIR, 'github_accounts.json')
+
 ACTIVE_SESSIONS = {}
 
 PLATFORM_STEPS = {
