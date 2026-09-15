@@ -28,48 +28,49 @@ class ComprehensiveSystemTest(unittest.TestCase):
         cls.httpd.server_close()
 
     def test_01_automation_controller_steps(self):
-        """Test step generation for multiple platforms including custom 'other'"""
-        platforms = ['youtube', 'facebook', 'other']
-        custom_url = 'https://mysite.com/portal'
-        steps = automation_controller.build_workflow_steps(platforms, custom_url)
-        
-        self.assertGreater(len(steps), 0)
-        platform_names = [s['platform'] for s in steps]
-        self.assertIn('youtube', platform_names)
-        self.assertIn('facebook', platform_names)
-        self.assertIn('other', platform_names)
-        
-        # Verify custom targetUrl was properly injected
-        other_steps = [s for s in steps if s['platform'] == 'other']
-        for s in other_steps:
-            self.assertEqual(s['targetUrl'], custom_url)
+        """Test YouTube workflow mode steps generation"""
+        steps_studio = automation_controller.build_workflow_steps(['youtube'], youtube_mode='studio')
+        self.assertGreater(len(steps_studio), 0)
+        self.assertEqual(steps_studio[0]['modeName'], 'Studio Upload & Management')
+        self.assertEqual(steps_studio[0]['id'], 'yt_studio_init')
+
+        steps_watch = automation_controller.build_workflow_steps(['youtube'], custom_url='https://youtube.com/watch?v=123', youtube_mode='watch')
+        self.assertEqual(steps_watch[0]['modeName'], 'Video Watch & Engagement')
+        self.assertEqual(steps_watch[0]['id'], 'yt_watch_init')
+        self.assertEqual(steps_watch[1]['targetUrl'], 'https://youtube.com/watch?v=123')
+
+        steps_full = automation_controller.build_workflow_steps(['youtube'], youtube_mode='full')
+        self.assertEqual(steps_full[0]['modeName'], 'Full Automation Pipeline')
 
     def test_02_automation_session_lifecycle(self):
         """Test start, state query, step advancement, and stop lifecycle"""
         pid = "test_profile_auto_1"
-        platforms = ['youtube', 'tiktok']
-        sess = automation_controller.start_automation_session(pid, platforms)
-        
+        sess = automation_controller.start_automation_session(
+            pid,
+            platforms=['youtube'],
+            youtube_mode='studio',
+            profile_name='YouTube Test Profile',
+            assigned_proxy='Proxy #7'
+        )
         self.assertEqual(sess['profileId'], pid)
+        self.assertEqual(sess['profileName'], 'YouTube Test Profile')
+        self.assertEqual(sess['proxyLabel'], 'Proxy #7')
         self.assertEqual(sess['status'], 'running')
-        
-        # Query state
+
         st = automation_controller.get_session_state(pid)
         self.assertTrue(st['active'])
         self.assertEqual(st['currentStepIndex'], 0)
         self.assertFalse(st['completed'])
         first_step = st['currentStep']
-        self.assertEqual(first_step['id'], 'yt_init')
-        
-        # Advance step
+        self.assertEqual(first_step['id'], 'yt_studio_init')
+
         ok, msg = automation_controller.advance_step(pid, user_action='continue')
         self.assertTrue(ok)
         st2 = automation_controller.get_session_state(pid)
         self.assertEqual(st2['currentStepIndex'], 1)
-        self.assertEqual(st2['currentStep']['id'], 'yt_auth')
+        self.assertEqual(st2['currentStep']['id'], 'yt_studio_auth')
         self.assertTrue(st2['currentStep']['requiresManual'])
-        
-        # Stop session
+
         stopped = automation_controller.stop_automation_session(pid)
         self.assertTrue(stopped)
         st_stopped = automation_controller.get_session_state(pid)
@@ -200,6 +201,29 @@ class ComprehensiveSystemTest(unittest.TestCase):
             for p in profiles:
                 if p.get('id') == pid:
                     self.assertFalse(p.get('isRunning'))
+
+    def test_07_permanent_proxy_pool(self):
+        """Verify master proxy pool contains 40+ numbered proxies and assignment tracking works"""
+        import proxies_pool
+        pool = proxies_pool.load_pool()
+        self.assertGreater(len(pool), 40)
+        p1 = proxies_pool.get_proxy_by_number(1)
+        self.assertIsNotNone(p1)
+        self.assertEqual(p1['number'], 1)
+
+        # Test live assignment mapping
+        dummy_profiles = [
+            {'id': 'p_test_1', 'name': 'Test Channel 1', 'assignedProxyId': 'proxy_1', 'assignedProxyNumber': 1},
+            {'id': 'p_test_2', 'name': 'Test Channel 2', 'assignedProxyId': 'proxy_7', 'assignedProxyNumber': 7}
+        ]
+        assigned_pool = proxies_pool.get_pool_with_assignments(dummy_profiles)
+        p1_assigned = next(x for x in assigned_pool if x['number'] == 1)
+        self.assertTrue(p1_assigned['isAssigned'])
+        self.assertEqual(p1_assigned['assignedToProfileName'], 'Test Channel 1')
+
+        p2_free = next(x for x in assigned_pool if x['number'] == 2)
+        self.assertFalse(p2_free['isAssigned'])
+        self.assertEqual(p2_free['statusBadge'], 'Available')
 
 
 if __name__ == '__main__':

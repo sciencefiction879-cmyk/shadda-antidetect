@@ -111,12 +111,18 @@
       } catch (e) {}
     }
 
+    const profName = window.__SHADDA_PROFILE_NAME__ || state.profileName || 'Profile';
+    const proxyLabel = window.__SHADDA_PROXY_LABEL__ || state.proxyLabel || 'Assigned Proxy';
+    const modeName = state.modeName || 'YouTube Automation';
+
     if (_isMinimized) {
       _hudContainer.innerHTML = `
-        <div style="background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(14, 165, 233, 0.4); border-radius: 9999px; padding: 8px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" onclick="window.__SHADDA_TOGGLE_HUD__()">
-          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${isWaiting ? '#f59e0b' : '#10b981'}; box-shadow: 0 0 8px ${isWaiting ? '#f59e0b' : '#10b981'};"></span>
-          <span style="font-weight: 700; font-size: 12px; color: #38bdf8;">🤖 GitHub Actions</span>
-          <span style="font-size: 11px; color: #cbd5e1;">Step ${stepNum}/${totalSteps}</span>
+        <div style="background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(239, 68, 68, 0.5); border-radius: 9999px; padding: 8px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" onclick="window.__SHADDA_TOGGLE_HUD__()">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${isWaiting ? '#f59e0b' : '#ef4444'}; box-shadow: 0 0 8px ${isWaiting ? '#f59e0b' : '#ef4444'};"></span>
+          <span style="font-weight: 700; font-size: 12px; color: #f87171;">▶ YouTube</span>
+          <span style="font-size: 11px; color: #cbd5e1;">👤 ${profName}</span>
+          <span style="font-size: 10px; color: #38bdf8;">🔒 ${proxyLabel}</span>
+          <span style="font-size: 11px; color: #94a3b8;">${stepNum}/${totalSteps}</span>
           <span style="color: #94a3b8; font-size: 12px; margin-left: 4px;">▲</span>
         </div>
       `;
@@ -124,25 +130,33 @@
     }
 
     _hudContainer.innerHTML = `
-      <div style="background: rgba(15, 23, 42, 0.96); backdrop-filter: blur(16px); border: 1px solid ${isWaiting ? 'rgba(245, 158, 11, 0.5)' : 'rgba(14, 165, 233, 0.35)'}; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6);">
+      <div style="background: rgba(15, 23, 42, 0.96); backdrop-filter: blur(16px); border: 1px solid ${isWaiting ? 'rgba(245, 158, 11, 0.5)' : 'rgba(239, 68, 68, 0.45)'}; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6);">
         <!-- Top Bar -->
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(30, 41, 59, 0.7); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${isWaiting ? '#f59e0b' : '#10b981'}; box-shadow: 0 0 8px ${isWaiting ? '#f59e0b' : '#10b981'}; animation: pulse 2s infinite;"></span>
-            <strong style="font-size: 12px; letter-spacing: 0.3px; color: #f8fafc; display: flex; align-items: center; gap: 6px;">
-              <span>🤖 GitHub Actions</span>
-              <span style="font-size: 11px; font-weight: 600; color: #e2e8f0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">👤 ${window.__SHADDA_PROFILE_NAME__ || state.profileName || state.profileId || 'Profile'}</span>
-              <span style="font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3);">${state.githubRunId || 'Running'}</span>
-            </strong>
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; background: rgba(30, 41, 59, 0.7); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${isWaiting ? '#f59e0b' : '#ef4444'}; box-shadow: 0 0 8px ${isWaiting ? '#f59e0b' : '#ef4444'}; animation: pulse 2s infinite;"></span>
+              <strong style="font-size: 12px; letter-spacing: 0.3px; color: #f8fafc; display: flex; align-items: center; gap: 6px;">
+                <span style="color: #ef4444; font-weight: 800;">▶ YouTube Automation</span>
+                <span style="font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3);">${modeName}</span>
+              </strong>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button onclick="window.__SHADDA_TOGGLE_HUD__()" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px;" title="Minimize HUD">_</button>
+            </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <button onclick="window.__SHADDA_TOGGLE_HUD__()" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px;" title="Minimize HUD">_</button>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 11px;">
+            <span style="color: #e2e8f0; font-weight: 600; display: flex; align-items: center; gap: 4px;">👤 <span>${profName}</span></span>
+            <span style="color: #64748b;">•</span>
+            <span style="color: #38bdf8; font-weight: 600; display: flex; align-items: center; gap: 4px; background: rgba(14, 165, 233, 0.15); padding: 1px 6px; border-radius: 4px; border: 1px solid rgba(14, 165, 233, 0.3);">🔒 <span>${proxyLabel}</span></span>
+            <span style="color: #64748b;">•</span>
+            <span style="color: #94a3b8; font-size: 10px;">${state.githubRunId || 'Active'}</span>
           </div>
         </div>
 
         <!-- Progress Track -->
         <div style="height: 3px; background: rgba(51, 65, 85, 0.5); width: 100%;">
-          <div style="height: 100%; width: ${progressPct}%; background: linear-gradient(90deg, #0ea5e9, #38bdf8); transition: width 0.4s ease;"></div>
+          <div style="height: 100%; width: ${progressPct}%; background: linear-gradient(90deg, #ef4444, #f87171); transition: width 0.4s ease;"></div>
         </div>
 
         <!-- Step Content -->

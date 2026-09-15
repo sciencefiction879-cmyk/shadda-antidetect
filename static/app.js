@@ -356,7 +356,10 @@ function renderProfiles() {
       ? `<span class="cell-ks" style="font-size: 9.5px; color: #f87171; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-left: 5px;" title="🛡️ Strict Kill Switch Active: Internet strictly blocked if proxy fails">🛡️ KS</span>`
       : '';
 
-    if (p.proxyType === "country") {
+    if (p.assignedProxyLabel || p.assignedProxyNumber) {
+      const pLabel = p.assignedProxyLabel || `Proxy #${p.assignedProxyNumber}`;
+      proxyHtml = `<span class="cell-proxy proxy-custom" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); font-weight: 700;" title="🔒 Permanently Assigned: ${pLabel} (${p.countryProxy || p.customProxy || ''})">🔒 ${pLabel}</span>${ksBadge}`;
+    } else if (p.proxyType === "country") {
       const flag = p.countryFlag || "🌍";
       const cname = p.countryName || p.countryCode || "Country";
       const isLocked = Boolean(p.countryProxy || p.customProxy);
@@ -389,8 +392,8 @@ function renderProfiles() {
             <div class="profile-name" title="${p.name || ''}">
               ${p.name || 'Untitled'}
               ${p.automation && p.automation.enabled ? `
-                <span class="badge-auto" style="font-size: 10px; font-weight: 700; background: rgba(14, 165, 233, 0.18); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.35); padding: 1px 6px; border-radius: 4px; margin-left: 6px; display: inline-flex; align-items: center; gap: 3px;" title="GitHub Actions Automation Enabled">
-                  🤖 ${(p.automation.platforms || ['YouTube']).map(x => x.toUpperCase()).join('+')}
+                <span class="badge-auto" style="font-size: 10px; font-weight: 700; background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); padding: 1px 6px; border-radius: 4px; margin-left: 6px; display: inline-flex; align-items: center; gap: 3px;" title="YouTube Automation Active">
+                  ▶ ${(p.automation.youtubeMode || p.automation.mode || 'Studio').toUpperCase()}
                 </span>
               ` : ''}
             </div>
@@ -444,10 +447,10 @@ async function launchProfile(id, urlOverride, forceDirect, withAutomation) {
   if (p && p.automation && p.automation.enabled && withAutomation === undefined && !urlOverride) {
     const modal = document.getElementById("launchChoiceModal");
     const sub = document.getElementById("launchChoiceSubtitle");
-    const title = document.getElementById("launchChoiceTitle");
-    const plats = (p.automation.platforms || ['youtube']).map(x => x.toUpperCase()).join(', ');
+    const ytMode = (p.automation.youtubeMode || p.automation.mode || 'Studio').toUpperCase();
+    const proxyStr = p.assignedProxyLabel || (p.assignedProxyNumber ? `Proxy #${p.assignedProxyNumber}` : 'Assigned Proxy');
     if (title) title.textContent = `🚀 Launch "${p.name || 'Profile'}"`;
-    if (sub) sub.innerHTML = `This profile has <strong>GitHub Actions automation</strong> enabled for <strong>${plats}</strong>.<br><br>How would you like to launch this session?`;
+    if (sub) sub.innerHTML = `This profile is configured with <strong>YouTube Automation (${ytMode})</strong> on <strong>${proxyStr}</strong>.<br><br>How would you like to launch this session?`;
 
     const btnWith = document.getElementById("btnLaunchWithAuto");
     const btnWithout = document.getElementById("btnLaunchWithoutAuto");
@@ -639,36 +642,20 @@ function openCreateModal() {
   document.getElementById("formColor").value = getRandomColor();
   document.getElementById("formUserAgentSelect").value = "win_chrome";
   document.getElementById("formCustomUaGroup").style.display = "none";
-  // Country proxy reset
-  const cpGroup = document.getElementById("formCountryProxyGroup");
-  if (cpGroup) cpGroup.style.display = "none";
-  const cpInput = document.getElementById("formCountryProxyInput");
-  if (cpInput) cpInput.value = "";
-  const cpSelect = document.getElementById("formCountrySelect");
-  if (cpSelect) cpSelect.value = "PK";
 
-  // Check if GitHub account exists, otherwise default to Direct Connection
-  const hasGh = (allGithubAccounts && allGithubAccounts.length > 0);
-  if (hasGh) {
-    document.querySelector('input[name="proxyType"][value="github"]').checked = true;
-    document.getElementById("formGithubAccountGroup").style.display = "block";
-    document.getElementById("formGithubAccountSelect").value = "default";
-  } else {
-    document.querySelector('input[name="proxyType"][value="none"]').checked = true;
-    document.getElementById("formGithubAccountGroup").style.display = "none";
-  }
+  clearSelectedProxy();
+
+  // Permanent Proxy Pool selected by default
+  const cpRadio = document.querySelector('input[name="proxyType"][value="country"]');
+  if (cpRadio) cpRadio.checked = true;
+
+  const cpGroup = document.getElementById("formCountryProxyGroup");
+  if (cpGroup) cpGroup.style.display = "block";
+  document.getElementById("formGithubAccountGroup").style.display = "none";
   document.getElementById("formCustomProxyGroup").style.display = "none";
-  document.getElementById("formCustomProxy").value = "";
-  const qp = document.getElementById("formProxyQuickPaste");
-  if (qp) qp.value = "";
-  const ph = document.getElementById("formProxyHost");
-  if (ph) ph.value = "";
-  const pp = document.getElementById("formProxyPort");
-  if (pp) pp.value = "";
-  const pu = document.getElementById("formProxyUser");
-  if (pu) pu.value = "";
-  const ppw = document.getElementById("formProxyPass");
-  if (ppw) ppw.value = "";
+
+  loadMasterProxyPool(null, null);
+
   const diagCard = document.getElementById("proxyDiagnosticCard");
   if (diagCard) diagCard.style.display = "none";
   const badge = document.getElementById("proxyTestStatusBadge");
@@ -683,18 +670,13 @@ function openCreateModal() {
   const autoCb = document.getElementById("formAutoLaunch");
   if (autoCb) autoCb.checked = true;
 
-  // Automation settings reset
+  // YouTube Automation settings reset
   const autoOffRadio = document.querySelector('input[name="profileAutomationEnabled"][value="off"]');
   if (autoOffRadio) autoOffRadio.checked = true;
   const autoPlatformsGrp = document.getElementById("formAutomationPlatformsGroup");
   if (autoPlatformsGrp) autoPlatformsGrp.style.display = "none";
-  document.querySelectorAll('input[name="autoPlatform"]').forEach(chk => {
-    chk.checked = (chk.value === 'youtube');
-  });
-  const chkOther = document.getElementById("chkAutoPlatformOther");
-  if (chkOther) chkOther.checked = false;
-  const customUrlGrp = document.getElementById("formAutoCustomUrlGroup");
-  if (customUrlGrp) customUrlGrp.style.display = "none";
+  const ytStudioRadio = document.querySelector('input[name="youtubeMode"][value="studio"]');
+  if (ytStudioRadio) ytStudioRadio.checked = true;
   const customUrlInp = document.getElementById("formAutoCustomUrl");
   if (customUrlInp) customUrlInp.value = "";
 
@@ -735,15 +717,28 @@ function openEditModal(id) {
   if (proxyRadio) proxyRadio.checked = true;
 
   const cpGroup = document.getElementById("formCountryProxyGroup");
-  if (p.proxyType === "country") {
+  if (p.proxyType === "country" || p.assignedProxyId || p.assignedProxyNumber) {
     if (cpGroup) cpGroup.style.display = "block";
-    const cpSelect = document.getElementById("formCountrySelect");
-    if (cpSelect && p.countryCode) cpSelect.value = p.countryCode;
-    const cpInput = document.getElementById("formCountryProxyInput");
-    if (cpInput) cpInput.value = p.countryProxy || p.customProxy || "";
-    loadCountryProxiesInForm(p.countryCode || "PK");
+    loadMasterProxyPool(p.assignedProxyId || p.assignedProxyNumber, p.id);
   } else {
     if (cpGroup) cpGroup.style.display = "none";
+  }
+
+  // Pre-fill permanent assigned proxy if present
+  if (p.assignedProxyId || p.assignedProxyNumber || p.assignedProxyLabel) {
+    document.getElementById("formAssignedProxyId").value = p.assignedProxyId || "";
+    document.getElementById("formAssignedProxyNumber").value = p.assignedProxyNumber || "";
+    document.getElementById("formAssignedProxyLabel").value = p.assignedProxyLabel || "";
+    document.getElementById("formCountryProxyInput").value = p.countryProxy || p.customProxy || "";
+    const displayText = document.getElementById("selectedProxyDisplayText");
+    if (displayText) {
+      const lbl = p.assignedProxyLabel || `Proxy #${p.assignedProxyNumber}`;
+      displayText.innerHTML = `<span style="color: #10b981;">✅ Locked: <strong>${lbl}</strong></span>`;
+    }
+    const clearBtn = document.getElementById("btnClearSelectedProxy");
+    if (clearBtn) clearBtn.style.display = "inline-block";
+  } else {
+    clearSelectedProxy();
   }
 
   if (p.proxyType === "github") {
@@ -771,21 +766,16 @@ function openEditModal(id) {
     document.getElementById("formCustomProxyGroup").style.display = "none";
   }
 
-  // Populate Automation Settings
+  // Populate YouTube Automation Settings
   const autoCfg = p.automation || {};
   const isAutoOn = !!autoCfg.enabled;
   const autoRadio = document.querySelector(`input[name="profileAutomationEnabled"][value="${isAutoOn ? 'on' : 'off'}"]`);
   if (autoRadio) autoRadio.checked = true;
   const autoPlatformsGrp = document.getElementById("formAutomationPlatformsGroup");
   if (autoPlatformsGrp) autoPlatformsGrp.style.display = isAutoOn ? "block" : "none";
-  const selectedPlats = autoCfg.platforms || (isAutoOn ? ['youtube'] : []);
-  document.querySelectorAll('input[name="autoPlatform"]').forEach(chk => {
-    chk.checked = selectedPlats.includes(chk.value);
-  });
-  const chkOther = document.getElementById("chkAutoPlatformOther");
-  if (chkOther) chkOther.checked = selectedPlats.includes('other');
-  const customUrlGrp = document.getElementById("formAutoCustomUrlGroup");
-  if (customUrlGrp) customUrlGrp.style.display = selectedPlats.includes('other') ? "block" : "none";
+  const ytMode = autoCfg.youtubeMode || autoCfg.mode || "studio";
+  const ytRadio = document.querySelector(`input[name="youtubeMode"][value="${ytMode}"]`);
+  if (ytRadio) ytRadio.checked = true;
   const customUrlInp = document.getElementById("formAutoCustomUrl");
   if (customUrlInp) customUrlInp.value = autoCfg.customUrl || "";
 
@@ -830,11 +820,54 @@ function setupEventListeners() {
     });
   });
 
-  const chkOther = document.getElementById("chkAutoPlatformOther");
-  if (chkOther) {
-    chkOther.addEventListener('change', () => {
-      const customGrp = document.getElementById("formAutoCustomUrlGroup");
-      if (customGrp) customGrp.style.display = chkOther.checked ? "block" : "none";
+  // Master Proxy Pool Controls
+  const poolSearchInput = document.getElementById("proxyPoolSearchInput");
+  if (poolSearchInput) {
+    poolSearchInput.addEventListener("input", renderProxyPoolTable);
+  }
+
+  const formCountrySel = document.getElementById("formCountrySelect");
+  if (formCountrySel) {
+    formCountrySel.addEventListener("change", renderProxyPoolTable);
+  }
+
+  const btnRefreshPool = document.getElementById("btnRefreshProxyPool");
+  if (btnRefreshPool) {
+    btnRefreshPool.addEventListener("click", () => {
+      loadMasterProxyPool(currentSelectedProxyId, activeProfileModalId);
+    });
+  }
+
+  const btnClearProxy = document.getElementById("btnClearSelectedProxy");
+  if (btnClearProxy) {
+    btnClearProxy.addEventListener("click", clearSelectedProxy);
+  }
+
+  const tabAll = document.getElementById("tabFilterAllProxies");
+  const tabAvail = document.getElementById("tabFilterAvailableProxies");
+  const tabAssigned = document.getElementById("tabFilterAssignedProxies");
+
+  if (tabAll && tabAvail && tabAssigned) {
+    tabAll.addEventListener("click", () => {
+      proxyPoolFilterStatus = "ALL";
+      tabAll.style.background = "rgba(255,255,255,0.15)";
+      tabAvail.style.background = "rgba(16, 185, 129, 0.12)";
+      tabAssigned.style.background = "rgba(245, 158, 11, 0.1)";
+      renderProxyPoolTable();
+    });
+    tabAvail.addEventListener("click", () => {
+      proxyPoolFilterStatus = "AVAILABLE";
+      tabAll.style.background = "rgba(255,255,255,0.08)";
+      tabAvail.style.background = "rgba(16, 185, 129, 0.3)";
+      tabAssigned.style.background = "rgba(245, 158, 11, 0.1)";
+      renderProxyPoolTable();
+    });
+    tabAssigned.addEventListener("click", () => {
+      proxyPoolFilterStatus = "ASSIGNED";
+      tabAll.style.background = "rgba(255,255,255,0.08)";
+      tabAvail.style.background = "rgba(16, 185, 129, 0.12)";
+      tabAssigned.style.background = "rgba(245, 158, 11, 0.3)";
+      renderProxyPoolTable();
     });
   }
 
@@ -1119,8 +1152,7 @@ function setupEventListeners() {
       document.getElementById("formCustomProxyGroup").style.display = isCustom ? "block" : "none";
       document.getElementById("formGithubAccountGroup").style.display = isGithub ? "block" : "none";
       if (isCountry) {
-        const cc = document.getElementById("formCountrySelect")?.value || "PK";
-        loadCountryProxiesInForm(cc);
+        loadMasterProxyPool(currentSelectedProxyId, activeProfileModalId);
       } else if (isCustom) {
         assembleProxyString();
       }
@@ -1208,13 +1240,16 @@ function setupEventListeners() {
     }
 
     const pType = document.querySelector('input[name="proxyType"]:checked')?.value || "none";
+    const assignedId = document.getElementById("formAssignedProxyId")?.value || "";
+    const assignedNum = parseInt(document.getElementById("formAssignedProxyNumber")?.value || "0") || null;
+    const assignedLabel = document.getElementById("formAssignedProxyLabel")?.value || "";
+    const cProxy = document.getElementById("formCountryProxyInput")?.value?.trim() || "";
     const selCountry = document.getElementById("formCountrySelect");
     const cCode = selCountry ? selCountry.value : "PK";
     const cText = selCountry && selCountry.options[selCountry.selectedIndex] ? selCountry.options[selCountry.selectedIndex].text : "🇵🇰 Pakistan";
-    const cProxy = document.getElementById("formCountryProxyInput")?.value?.trim() || "";
 
     const autoEnabled = document.querySelector('input[name="profileAutomationEnabled"]:checked')?.value === 'on';
-    const autoPlatforms = Array.from(document.querySelectorAll('input[name="autoPlatform"]:checked')).map(c => c.value);
+    const ytMode = document.querySelector('input[name="youtubeMode"]:checked')?.value || 'studio';
     const autoCustomUrl = document.getElementById("formAutoCustomUrl")?.value?.trim() || "";
 
     const payload = {
@@ -1225,6 +1260,9 @@ function setupEventListeners() {
       userAgent: uaString,
       isMobile: isMobile,
       proxyType: pType,
+      assignedProxyId: assignedId,
+      assignedProxyNumber: assignedNum,
+      assignedProxyLabel: assignedLabel,
       countryCode: cCode,
       countryName: cText,
       countryProxy: cProxy,
@@ -1235,7 +1273,9 @@ function setupEventListeners() {
       startUrl: document.getElementById("formStartUrl").value.trim() || "https://studio.youtube.com",
       automation: {
         enabled: autoEnabled,
-        platforms: autoPlatforms.length ? autoPlatforms : ['youtube'],
+        platforms: ['youtube'],
+        youtubeMode: ytMode,
+        mode: ytMode,
         customUrl: autoCustomUrl,
         githubAccountId: document.getElementById("formGithubAccountSelect").value || "default"
       }
@@ -1337,6 +1377,189 @@ async function startBuiltInUpdate() { return; }
 // ==========================================
 let allCountryCatalog = [];
 let currentHubCountry = "PK";
+// ==========================================
+// MASTER PERMANENT PROXY POOL SYSTEM (PROXY #1, PROXY #2, ... PROXY #43+)
+// ==========================================
+let cachedProxyPool = [];
+let proxyPoolFilterStatus = 'ALL';
+let activeProfileModalId = null;
+let currentSelectedProxyId = null;
+
+async function loadMasterProxyPool(selectedProxyId = null, profileId = null) {
+  currentSelectedProxyId = selectedProxyId || null;
+  activeProfileModalId = profileId || null;
+
+  const countBadge = document.getElementById("countryProxyCountBadge");
+  if (countBadge) countBadge.textContent = "Loading Pool...";
+  const tbody = document.getElementById("proxyPoolTableBody");
+  if (tbody) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 16px; color: var(--text-muted);">⚡ Fetching master proxy pool with assignment statuses...</td></tr>`;
+  }
+
+  try {
+    const res = await fetch("/api/proxies/pool");
+    if (!res.ok) throw new Error("Failed to fetch proxy pool");
+    cachedProxyPool = await res.json();
+    if (countBadge) {
+      const availCount = cachedProxyPool.filter(p => !p.isAssigned).length;
+      countBadge.textContent = `${cachedProxyPool.length} Proxies (${availCount} Available)`;
+    }
+    renderProxyPoolTable();
+
+    // If a proxy was selected, update indicator
+    if (currentSelectedProxyId) {
+      const p = cachedProxyPool.find(x => x.id === currentSelectedProxyId || String(x.number) === String(currentSelectedProxyId));
+      if (p) {
+        selectProxyFromMasterPool(p.id, false);
+      }
+    }
+  } catch (e) {
+    console.error("Error loading master proxy pool:", e);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 14px; color: #ef4444;">Error loading proxy pool: ${e.message}</td></tr>`;
+  }
+}
+
+function renderProxyPoolTable() {
+  const tbody = document.getElementById("proxyPoolTableBody");
+  if (!tbody) return;
+
+  const searchQuery = (document.getElementById("proxyPoolSearchInput")?.value || "").toLowerCase().trim();
+  const selCountry = (document.getElementById("formCountrySelect")?.value || "ALL").toUpperCase();
+
+  let list = cachedProxyPool.filter(p => {
+    // Country filter
+    if (selCountry !== "ALL" && p.countryCode !== selCountry) return false;
+
+    // Status tab filter
+    if (proxyPoolFilterStatus === "AVAILABLE" && p.isAssigned) return false;
+    if (proxyPoolFilterStatus === "ASSIGNED" && !p.isAssigned) return false;
+
+    // Search query
+    if (searchQuery) {
+      const pNumStr = `proxy #${p.number}`.toLowerCase();
+      const matchLabel = (p.label || "").toLowerCase().includes(searchQuery);
+      const matchCountry = (p.country || "").toLowerCase().includes(searchQuery);
+      const matchCity = (p.city || "").toLowerCase().includes(searchQuery);
+      const matchHost = (p.host || "").toLowerCase().includes(searchQuery);
+      if (!pNumStr.includes(searchQuery) && !matchLabel && !matchCountry && !matchCity && !matchHost) return false;
+    }
+    return true;
+  });
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 16px; color: var(--text-muted);">No proxies found matching current filter.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(p => {
+    const isThisSelected = (currentSelectedProxyId && (currentSelectedProxyId === p.id || String(currentSelectedProxyId) === String(p.number)));
+    const isAssignedToThis = (activeProfileModalId && p.assignedToProfileId === activeProfileModalId);
+    const isAssignedOther = (p.isAssigned && (!activeProfileModalId || p.assignedToProfileId !== activeProfileModalId));
+
+    let statusBadge = "";
+    if (isThisSelected || isAssignedToThis) {
+      statusBadge = `<span style="background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4); padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">🔒 Locked to this Profile</span>`;
+    } else if (isAssignedOther) {
+      statusBadge = `<span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px;" title="Already assigned to ${p.assignedToProfileName}">🔒 Assigned: ${p.assignedToProfileName}</span>`;
+    } else {
+      statusBadge = `<span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">🟢 Available</span>`;
+    }
+
+    let actionBtn = "";
+    if (isThisSelected) {
+      actionBtn = `<button type="button" class="btn-primary" style="padding: 3px 8px; font-size: 11px; background: #10b981; cursor: default;">✓ Selected</button>`;
+    } else {
+      actionBtn = `<button type="button" class="btn-secondary" style="padding: 3px 8px; font-size: 11px; cursor: pointer;" onclick="selectProxyFromMasterPool('${p.id}')">Select & Lock</button>`;
+    }
+
+    const rowBg = isThisSelected ? "background: rgba(14, 165, 233, 0.12);" : "";
+
+    return `
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); ${rowBg}">
+        <td style="padding: 8px 10px; font-weight: 700; color: #fff;">
+          ${isThisSelected ? '🔒 ' : ''}${p.label || 'Proxy #' + p.number}
+        </td>
+        <td style="padding: 8px 10px; color: #e2e8f0;">
+          <span>${p.flag || '🌐'}</span> ${p.country} <span style="color: var(--text-muted); font-size: 10.5px;">(${p.city || '-'})</span>
+        </td>
+        <td style="padding: 8px 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #cbd5e1;">
+          <span style="color: var(--accent-cyan); font-weight: 600;">${p.protocol}</span>://${p.host}:${p.port}
+        </td>
+        <td style="padding: 8px 10px; color: ${p.latencyMs < 200 ? '#10b981' : (p.latencyMs < 500 ? '#f59e0b' : '#ef4444')}; font-weight: 600;">
+          ${p.latencyMs}ms
+        </td>
+        <td style="padding: 8px 10px;">
+          ${statusBadge}
+        </td>
+        <td style="padding: 8px 10px; text-align: right;">
+          ${actionBtn}
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function selectProxyFromMasterPool(proxyId, reRender = true) {
+  const p = cachedProxyPool.find(x => x.id === proxyId || String(x.number) === String(proxyId));
+  if (!p) return;
+
+  currentSelectedProxyId = p.id;
+  const idEl = document.getElementById("formAssignedProxyId");
+  if (idEl) idEl.value = p.id;
+  const numEl = document.getElementById("formAssignedProxyNumber");
+  if (numEl) numEl.value = p.number;
+  const labelEl = document.getElementById("formAssignedProxyLabel");
+  if (labelEl) labelEl.value = `${p.label} (${p.country}${p.city ? ' - ' + p.city : ''})`;
+  const inputEl = document.getElementById("formCountryProxyInput");
+  if (inputEl) inputEl.value = p.formatted;
+
+  const displayText = document.getElementById("selectedProxyDisplayText");
+  if (displayText) {
+    displayText.innerHTML = `<span style="color: #10b981;">✅ Locked: <strong>${p.label}</strong> (${p.flag || '🌐'} ${p.country}${p.city ? ' - ' + p.city : ''}) — <code>${p.protocol}://${p.host}:${p.port}</code></span>`;
+  }
+
+  const clearBtn = document.getElementById("btnClearSelectedProxy");
+  if (clearBtn) clearBtn.style.display = "inline-block";
+
+  if (p.timezone) {
+    setTimezoneValue(p.timezone);
+  }
+
+  const countryRadio = document.querySelector('input[name="proxyType"][value="country"]');
+  if (countryRadio) countryRadio.checked = true;
+
+  if (reRender) {
+    renderProxyPoolTable();
+  }
+}
+
+function clearSelectedProxy() {
+  currentSelectedProxyId = null;
+  const idEl = document.getElementById("formAssignedProxyId");
+  if (idEl) idEl.value = "";
+  const numEl = document.getElementById("formAssignedProxyNumber");
+  if (numEl) numEl.value = "";
+  const labelEl = document.getElementById("formAssignedProxyLabel");
+  if (labelEl) labelEl.value = "";
+  const inputEl = document.getElementById("formCountryProxyInput");
+  if (inputEl) inputEl.value = "";
+
+  const displayText = document.getElementById("selectedProxyDisplayText");
+  if (displayText) {
+    displayText.innerHTML = `<span style="color: var(--text-muted);">None selected (Pick from pool below or direct)</span>`;
+  }
+
+  const clearBtn = document.getElementById("btnClearSelectedProxy");
+  if (clearBtn) clearBtn.style.display = "none";
+
+  renderProxyPoolTable();
+}
+
+window.loadMasterProxyPool = loadMasterProxyPool;
+window.renderProxyPoolTable = renderProxyPoolTable;
+window.selectProxyFromMasterPool = selectProxyFromMasterPool;
+window.clearSelectedProxy = clearSelectedProxy;
+
 let cachedCountryProxies = {};
 
 async function loadCountryCatalog() {

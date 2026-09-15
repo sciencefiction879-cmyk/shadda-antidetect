@@ -3,7 +3,7 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [('static', 'static'), ('anti_detect_extension', 'anti_detect_extension'), ('bootstrap_config.json', '.'), ('github_client.pyc', '.'), ('github_accounts.json', '.')]
 binaries = []
-hiddenimports = ['country_proxies', 'automation_controller', 'browser_runner', 'stealth_injector', 'github_client', 'webview', 'objc', 'WebKit', 'Foundation', 'AppKit', 'websocket', 'bottle', 'proxy_tools']
+hiddenimports = ['proxies_pool', 'ads_manager', 'auto_updater', 'country_proxies', 'automation_controller', 'browser_runner', 'stealth_injector', 'github_client', 'webview', 'objc', 'WebKit', 'Foundation', 'AppKit', 'websocket', 'bottle', 'proxy_tools']
 tmp_ret = collect_all('webview')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 

@@ -292,21 +292,36 @@
           <textarea id="formCustomUaInput" rows="2" placeholder="Mozilla/5.0..."></textarea>
         </div>
 
+        <!-- Selected Permanent Proxy Indicator Card -->
+        <div id="selectedProxyIndicatorCard" style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.35); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <div style="font-size: 11px; color: var(--accent-cyan); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">🔒 Assigned Proxy for this Profile</div>
+            <div id="selectedProxyDisplayText" style="font-size: 13.5px; font-weight: 700; color: #fff; margin-top: 2px;">
+              <span style="color: var(--text-muted);">None selected (Pick from pool below or direct)</span>
+            </div>
+          </div>
+          <button type="button" id="btnClearSelectedProxy" class="btn-text" style="font-size: 11px; color: #f87171; display: none; cursor: pointer;">✕ Remove Lock</button>
+        </div>
+
+        <input type="hidden" id="formAssignedProxyId">
+        <input type="hidden" id="formAssignedProxyNumber">
+        <input type="hidden" id="formAssignedProxyLabel">
+
         <!-- Proxy Configuration -->
         <div class="form-group">
-          <label>Proxy Connection</label>
+          <label>Proxy Connection Mode</label>
           <div class="radio-cards">
             <label class="radio-card">
-              <input type="radio" name="proxyType" value="country">
+              <input type="radio" name="proxyType" value="country" checked>
               <div class="radio-card-content">
-                <span class="card-icon">🌍</span>
-                <span class="card-title">Country Proxy</span>
-                <span class="card-sub">Pakistan, India, USA, UK, Germany, Philippines, etc.</span>
+                <span class="card-icon">🔒</span>
+                <span class="card-title">Permanent Proxy Pool</span>
+                <span class="card-sub">Select & permanently lock a dedicated proxy (Proxy #1, #2...)</span>
               </div>
             </label>
 
             <label class="radio-card">
-              <input type="radio" name="proxyType" value="github" checked>
+              <input type="radio" name="proxyType" value="github">
               <div class="radio-card-content">
                 <span class="card-icon">☁️</span>
                 <span class="card-title">GitHub Cloud Runner</span>
@@ -317,7 +332,7 @@
             <label class="radio-card">
               <input type="radio" name="proxyType" value="custom">
               <div class="radio-card-content">
-                <span class="card-icon">🔒</span>
+                <span class="card-icon">⚡</span>
                 <span class="card-title">Custom Proxy</span>
                 <span class="card-sub">SOCKS5 / HTTP proxy of your choice</span>
               </div>
@@ -334,70 +349,62 @@
           </div>
         </div>
 
-        <!-- Global Country Proxy Selection Panel -->
-        <div id="formCountryProxyGroup" style="display: none; background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+        <!-- Master Selectable Proxy Pool Panel with Assignment Tracking -->
+        <div id="formCountryProxyGroup" style="display: block; background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <label style="font-weight: 700; color: var(--accent-emerald, #10b981); display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;">
-              <span>🌍</span> Global Country Proxy Pool
+              <span>🔒</span> Select Dedicated Proxy to Lock for this Profile
             </label>
-            <span id="countryProxyCountBadge" style="font-size: 11px; background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 8px; border-radius: 12px; font-weight: 600;">Live Feed Ready</span>
+            <span id="countryProxyCountBadge" style="font-size: 11px; background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 8px; border-radius: 12px; font-weight: 600;">Loading Pool...</span>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-            <div>
-              <label style="font-size: 11.5px; color: var(--text-muted); display: block; margin-bottom: 4px;">Select Country</label>
-              <select id="formCountrySelect" class="form-select" style="width: 100%; padding: 8px 10px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; font-size: 13px;">
-                <option value="PK">🇵🇰 Pakistan</option>
-                <option value="IN">🇮🇳 India</option>
-                <option value="US">🇺🇸 United States</option>
-                <option value="GB">🇬🇧 United Kingdom</option>
-                <option value="DE">🇩🇪 Germany</option>
-                <option value="PH">🇵🇭 Philippines</option>
-                <option value="RU">🇷🇺 Russia</option>
-                <option value="CA">🇨🇦 Canada</option>
-                <option value="FR">🇫🇷 France</option>
-                <option value="NL">🇳🇱 Netherlands</option>
-                <option value="SG">🇸🇬 Singapore</option>
-                <option value="JP">🇯🇵 Japan</option>
-                <option value="AU">🇦🇺 Australia</option>
-                <option value="BR">🇧🇷 Brazil</option>
-                <option value="TR">🇹🇷 Turkey</option>
-                <option value="AE">🇦🇪 United Arab Emirates</option>
-              </select>
-            </div>
-            <div>
-              <label style="font-size: 11.5px; color: var(--text-muted); display: block; margin-bottom: 4px;">Assigned Live Proxy</label>
-              <div style="display: flex; gap: 6px;">
-                <input type="text" id="formCountryProxyInput" placeholder="Click Auto-Assign or pick below" readonly style="flex: 1; font-size: 11.5px; font-family: 'JetBrains Mono', monospace; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; color: #10b981; font-weight: 600;">
-                <button type="button" id="btnAutoAssignCountryProxy" class="btn-primary" style="padding: 6px 12px; font-size: 11.5px; white-space: nowrap; font-weight: 600; cursor: pointer; background: var(--accent-emerald, #10b981);">
-                  ⚡ Auto-Assign
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div id="countryProxyStatusBox" style="background: rgba(0,0,0,0.25); border-radius: 6px; padding: 8px 12px; font-size: 11.5px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <div id="countryProxyInfoText" style="color: var(--text-muted);">
-              Select country and click <strong>Auto-Assign</strong> or select from live verified list below.
-            </div>
-            <button type="button" id="btnRefreshCountryProxies" class="btn-text" style="font-size: 11px; color: var(--accent-cyan); display: flex; align-items: center; gap: 4px; cursor: pointer;">
-              🔄 Refresh List
+          <!-- Search and Filter Controls -->
+          <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: center;">
+            <input type="text" id="proxyPoolSearchInput" placeholder="🔍 Search by Proxy #, Country, City, IP..." style="flex: 1; font-size: 12px; padding: 7px 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 6px; color: #fff;">
+            <select id="formCountrySelect" class="form-select" style="width: 140px; padding: 7px 8px; font-size: 12px;">
+              <option value="ALL">🌐 All Countries</option>
+              <option value="PH">🇵🇭 Philippines</option>
+              <option value="US">🇺🇸 United States</option>
+              <option value="GB">🇬🇧 United Kingdom</option>
+              <option value="DE">🇩🇪 Germany</option>
+              <option value="PK">🇵🇰 Pakistan</option>
+              <option value="IN">🇮🇳 India</option>
+              <option value="NL">🇳🇱 Netherlands</option>
+              <option value="SG">🇸🇬 Singapore</option>
+              <option value="JP">🇯🇵 Japan</option>
+              <option value="CA">🇨🇦 Canada</option>
+              <option value="FR">🇫🇷 France</option>
+            </select>
+            <button type="button" id="btnRefreshProxyPool" class="btn-secondary" style="padding: 7px 12px; font-size: 11.5px; white-space: nowrap; cursor: pointer;">
+              🔄 Refresh
             </button>
           </div>
 
-          <div style="max-height: 140px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; background: rgba(0,0,0,0.2);">
-            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+          <!-- Status Filter Tabs -->
+          <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+            <button type="button" id="tabFilterAllProxies" class="btn-text" style="font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 4px; background: rgba(255,255,255,0.08); color: #fff; cursor: pointer;">All Proxies</button>
+            <button type="button" id="tabFilterAvailableProxies" class="btn-text" style="font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px; background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25); cursor: pointer;">🟢 Available Only</button>
+            <button type="button" id="tabFilterAssignedProxies" class="btn-text" style="font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px; background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25); cursor: pointer;">🔒 Already Assigned</button>
+          </div>
+
+          <!-- Hidden raw input for compatibility -->
+          <input type="hidden" id="formCountryProxyInput">
+
+          <!-- Selectable Proxy Table -->
+          <div style="max-height: 220px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; background: rgba(0,0,0,0.25);">
+            <table style="width: 100%; border-collapse: collapse; font-size: 11.5px;">
               <thead>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-muted); text-align: left;">
-                  <th style="padding: 6px 10px;">Proxy Address</th>
-                  <th style="padding: 6px 10px;">Type</th>
-                  <th style="padding: 6px 10px;">City</th>
-                  <th style="padding: 6px 10px;">Ping</th>
-                  <th style="padding: 6px 10px; text-align: right;">Action</th>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-muted); text-align: left; position: sticky; top: 0; background: rgba(15, 23, 42, 0.95); z-index: 1;">
+                  <th style="padding: 8px 10px;">Proxy #</th>
+                  <th style="padding: 8px 10px;">Country / City</th>
+                  <th style="padding: 8px 10px;">Host : Port</th>
+                  <th style="padding: 8px 10px;">Ping</th>
+                  <th style="padding: 8px 10px;">Assignment Status</th>
+                  <th style="padding: 8px 10px; text-align: right;">Action</th>
                 </tr>
               </thead>
-              <tbody id="countryProxyTableBody">
-                <!-- Dynamically populated -->
+              <tbody id="proxyPoolTableBody">
+                <!-- Dynamically populated from /api/proxies/pool -->
               </tbody>
             </table>
           </div>
@@ -625,63 +632,64 @@
         </div>
 
         <!-- Automation for this Profile (GitHub Actions) -->
-        <div class="form-group" style="background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: var(--radius-md); padding: 14px; margin-bottom: 12px;">
+        <!-- Automation for this Profile (YouTube + GitHub Actions) -->
+        <div class="form-group" style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.28); border-radius: var(--radius-md); padding: 14px; margin-bottom: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <div>
-              <label style="font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;">
-                <span>🤖</span> Automation for this profile (GitHub Actions)
+              <label style="font-weight: 700; color: #f87171; display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0;">
+                <span>▶️</span> YouTube Automation (GitHub Actions Engine)
               </label>
               <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px;">
-                Controls profile tasks through cloud GitHub Actions runners with in-browser step guidance
+                Automates YouTube Studio & viewer engagement via cloud runner and assigned proxy
               </span>
             </div>
             <!-- ON / OFF Radio Toggle -->
             <div style="display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 3px; border-radius: 6px; border: 1px solid var(--border-color);">
               <label style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11.5px; font-weight: 700; margin: 0;" id="labelAutoOff">
-                <input type="radio" name="profileAutomationEnabled" value="off" checked style="accent-color: var(--accent-cyan); margin: 0;"> OFF
+                <input type="radio" name="profileAutomationEnabled" value="off" checked style="accent-color: #ef4444; margin: 0;"> OFF
               </label>
               <label style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11.5px; font-weight: 700; margin: 0;" id="labelAutoOn">
-                <input type="radio" name="profileAutomationEnabled" value="on" style="accent-color: var(--accent-cyan); margin: 0;"> ON
+                <input type="radio" name="profileAutomationEnabled" value="on" style="accent-color: #ef4444; margin: 0;"> ON
               </label>
             </div>
           </div>
 
-          <!-- Platforms Selection Panel (Shown when ON) -->
+          <!-- YouTube Workflow Mode Selector (Shown when ON) -->
           <div id="formAutomationPlatformsGroup" style="display: none; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
             <label style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 8px; display: block; font-weight: 600;">
-              Select Automation Platforms (Select multiple):
+              Select YouTube Automation Mode:
             </label>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
-              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
-                <input type="checkbox" name="autoPlatform" value="youtube" checked style="accent-color: #ef4444; width: 15px; height: 15px;">
-                <span>🟥 YouTube</span>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
+              <label class="radio-card" style="padding: 10px; margin: 0; cursor: pointer;">
+                <input type="radio" name="youtubeMode" value="studio" checked style="accent-color: #ef4444;">
+                <div class="radio-card-content" style="gap: 2px;">
+                  <span class="card-icon" style="font-size: 18px;">🎬</span>
+                  <span class="card-title" style="font-size: 12px; font-weight: 700;">Studio Upload</span>
+                  <span class="card-sub" style="font-size: 10.5px;">Video upload & tag sync</span>
+                </div>
               </label>
-              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
-                <input type="checkbox" name="autoPlatform" value="facebook" style="accent-color: #1877f2; width: 15px; height: 15px;">
-                <span>🟦 Facebook</span>
+              <label class="radio-card" style="padding: 10px; margin: 0; cursor: pointer;">
+                <input type="radio" name="youtubeMode" value="watch" style="accent-color: #ef4444;">
+                <div class="radio-card-content" style="gap: 2px;">
+                  <span class="card-icon" style="font-size: 18px;">▶️</span>
+                  <span class="card-title" style="font-size: 12px; font-weight: 700;">Watch & Retention</span>
+                  <span class="card-sub" style="font-size: 10.5px;">Stealth view simulation</span>
+                </div>
               </label>
-              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
-                <input type="checkbox" name="autoPlatform" value="tiktok" style="accent-color: #00f2fe; width: 15px; height: 15px;">
-                <span>⬛ TikTok</span>
-              </label>
-              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
-                <input type="checkbox" name="autoPlatform" value="instagram" style="accent-color: #e1306c; width: 15px; height: 15px;">
-                <span>🟪 Instagram</span>
-              </label>
-              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
-                <input type="checkbox" name="autoPlatform" value="twitter" style="accent-color: #1d9bf0; width: 15px; height: 15px;">
-                <span>⬛ X / Twitter</span>
-              </label>
-              <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
-                <input type="checkbox" name="autoPlatform" value="other" id="chkAutoPlatformOther" style="accent-color: #10b981; width: 15px; height: 15px;">
-                <span>🌐 Other</span>
+              <label class="radio-card" style="padding: 10px; margin: 0; cursor: pointer;">
+                <input type="radio" name="youtubeMode" value="full" style="accent-color: #ef4444;">
+                <div class="radio-card-content" style="gap: 2px;">
+                  <span class="card-icon" style="font-size: 18px;">⚡</span>
+                  <span class="card-title" style="font-size: 12px; font-weight: 700;">Full Pipeline</span>
+                  <span class="card-sub" style="font-size: 10.5px;">Multi-stage automation</span>
+                </div>
               </label>
             </div>
 
-            <!-- Custom URL for Other -->
-            <div id="formAutoCustomUrlGroup" style="display: none; margin-top: 8px;">
-              <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Website URL for "Other" Automation:</label>
-              <input type="url" id="formAutoCustomUrl" placeholder="https://example.com/login" style="width: 100%; font-size: 12px; padding: 8px 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 6px; color: #fff;">
+            <!-- Custom URL for YouTube Target -->
+            <div id="formAutoCustomUrlGroup" style="margin-top: 8px;">
+              <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Target YouTube Channel or Video URL (Optional):</label>
+              <input type="url" id="formAutoCustomUrl" placeholder="https://studio.youtube.com or https://youtube.com/watch?v=..." style="width: 100%; font-size: 12px; padding: 8px 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: 6px; color: #fff;">
             </div>
           </div>
         </div>

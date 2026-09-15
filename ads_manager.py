@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-APP_VERSION = "0.2"
+APP_VERSION = "0.3"
 
 BASE_DIR = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
 BOOTSTRAP_FILE = os.path.join(getattr(sys, '_MEIPASS', BASE_DIR), 'bootstrap_config.json')
@@ -12,8 +12,8 @@ DEFAULT_CONFIG = {
         "enabled": False,
         "latestVersion": APP_VERSION,
         "mandatory": False,
-        "title": "⚡ Shadda Anti Detect v0.2",
-        "changelog": "• Seamless Live Browsing & Direct Navigation\n• Real-Time Profile Name & Status in Chrome Title & Badge\n• Bulletproof HTTPS / SOCKS5 Proxy Connectivity\n• GitHub Actions Guided Automation HUD",
+        "title": "⚡ Shadda Anti Detect v0.3",
+        "changelog": "• Permanent Specific Proxy Selection: Select & lock dedicated proxies (Proxy #1, #2, ...) per profile\n• Master Proxy Pool Table with live assignment tracking & availability badges\n• YouTube-Only Automation Engine: Studio Upload, Watch & Retention, Full Pipeline\n• In-Browser YouTube HUD with profile name, assigned proxy & step progression\n• Airtight Kill Switch: Zero random proxy switching, ensuring real IP never leaks",
         "downloadUrl": "",
         "buttonText": "Up to date",
         "assetUrl": "",
@@ -23,8 +23,8 @@ DEFAULT_CONFIG = {
     "banner": {
         "enabled": True,
         "badge": "SHADDA PRO",
-        "title": "Welcome to Shadda Anti Detect v0.2",
-        "description": "Multi-profile anti-detect browser setup for Facebook, YouTube, TikTok and creator automation.",
+        "title": "Welcome to Shadda Anti Detect v0.3",
+        "description": "Multi-profile anti-detect browser with permanent proxy pool locking and dedicated YouTube automation.",
         "buttonText": "Ready",
         "linkUrl": "#",
         "imageUrl": ""

@@ -5,7 +5,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$DIR"
 
 echo "=================================================="
-echo "  Building Shadda Anti Detect v0.2 for macOS"
+echo "  Building Shadda Anti Detect v0.3 for macOS"
 echo "=================================================="
 
 VENV_PYTHON="$DIR/.venv/bin/python"
@@ -31,6 +31,9 @@ echo "[1/4] Building standalone macOS App Bundle with PyInstaller..."
     --add-data "bootstrap_config.json:." \
     --add-data "github_client.pyc:." \
     --add-data "github_accounts.json:." \
+    --hidden-import "proxies_pool" \
+    --hidden-import "ads_manager" \
+    --hidden-import "auto_updater" \
     --hidden-import "country_proxies" \
     --hidden-import "automation_controller" \
     --hidden-import "browser_runner" \
@@ -62,10 +65,10 @@ chmod +x "$APP_PATH/Contents/MacOS/Shadda Anti Detect"
 # Update Info.plist version and metadata
 PLIST="$APP_PATH/Contents/Info.plist"
 if [ -f "$PLIST" ]; then
-    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.2" "$PLIST" 2>/dev/null || \
-    /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 0.2" "$PLIST"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion 0.2.0" "$PLIST" 2>/dev/null || \
-    /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string 0.2.0" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.3" "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 0.3" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion 0.3.0" "$PLIST" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string 0.3.0" "$PLIST"
     /usr/libexec/PlistBuddy -c "Set :NSHumanReadableCopyright 'Copyright © 2026 Shadda Anti Detect'" "$PLIST" 2>/dev/null || \
     /usr/libexec/PlistBuddy -c "Add :NSHumanReadableCopyright string 'Copyright © 2026 Shadda Anti Detect'" "$PLIST"
 fi
@@ -75,7 +78,7 @@ mkdir -p dmg_staging
 cp -R "$APP_PATH" dmg_staging/
 ln -s /Applications dmg_staging/Applications
 
-DMG_OUTPUT="dist/Shadda Anti Detect-0.2.dmg"
+DMG_OUTPUT="dist/Shadda Anti Detect-0.3.dmg"
 rm -f "$DMG_OUTPUT"
 
 echo "[4/4] Creating macOS DMG image with hdiutil..."

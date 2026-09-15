@@ -17,23 +17,25 @@ if os.path.exists(os.path.join(DATA_DIR, 'github_accounts.json')):
 
 ACTIVE_SESSIONS = {}
 
-PLATFORM_STEPS = {
-    'youtube': [
+YOUTUBE_MODES = {
+    'studio': [
         {
-            'id': 'yt_init',
+            'id': 'yt_studio_init',
             'platform': 'youtube',
             'platformName': 'YouTube',
+            'modeName': 'Studio Upload & Management',
             'title': 'Connecting to GitHub Actions YouTube Engine',
-            'description': 'GitHub Actions runner is initializing cloud environment and preparing YouTube Studio session.',
+            'description': 'GitHub Actions runner is initializing cloud environment and connecting to your assigned proxy tunnel.',
             'targetUrl': 'https://studio.youtube.com',
             'requiresManual': False,
             'instruction': '',
             'nextStep': 'Sign in to YouTube Studio'
         },
         {
-            'id': 'yt_auth',
+            'id': 'yt_studio_auth',
             'platform': 'youtube',
             'platformName': 'YouTube',
+            'modeName': 'Studio Upload & Management',
             'title': 'YouTube Studio Login & 2-Step Verification',
             'description': 'GitHub Actions is waiting for active session authentication in your anti-detect browser.',
             'targetUrl': 'https://studio.youtube.com',
@@ -42,226 +44,138 @@ PLATFORM_STEPS = {
             'nextStep': 'Verify YouTube Channel Dashboard & Upload Slots'
         },
         {
-            'id': 'yt_dashboard',
+            'id': 'yt_studio_dashboard',
             'platform': 'youtube',
             'platformName': 'YouTube',
+            'modeName': 'Studio Upload & Management',
             'title': 'Checking Studio Dashboard & Upload Capabilities',
             'description': 'GitHub Actions is verifying channel upload readiness, copyright health, and active stream keys.',
             'targetUrl': 'https://studio.youtube.com',
             'requiresManual': False,
             'instruction': '',
-            'nextStep': 'YouTube Automation Session Fully Synchronized'
+            'nextStep': 'Synchronize Video Scheduling & Processing'
         },
         {
-            'id': 'yt_ready',
+            'id': 'yt_studio_ready',
             'platform': 'youtube',
             'platformName': 'YouTube',
-            'title': 'YouTube Automation Active & Controlled',
-            'description': 'GitHub Actions workflow is successfully connected and controlling your YouTube workflow in stealth mode.',
+            'modeName': 'Studio Upload & Management',
+            'title': 'YouTube Studio Management Active',
+            'description': 'GitHub Actions workflow is successfully connected and controlling your YouTube Studio session.',
             'targetUrl': 'https://studio.youtube.com',
             'requiresManual': False,
             'instruction': '',
-            'nextStep': 'Next platform queue or continuous background monitoring'
+            'nextStep': 'Continuous background synchronization'
         }
     ],
-    'facebook': [
+    'watch': [
         {
-            'id': 'fb_init',
-            'platform': 'facebook',
-            'platformName': 'Facebook',
-            'title': 'Connecting to GitHub Actions Facebook Engine',
-            'description': 'GitHub Actions runner is preparing the Meta automation session and secure proxy tunnel.',
-            'targetUrl': 'https://www.facebook.com',
+            'id': 'yt_watch_init',
+            'platform': 'youtube',
+            'platformName': 'YouTube',
+            'modeName': 'Video Watch & Engagement',
+            'title': 'Initializing YouTube Watch & Engagement Routine',
+            'description': 'GitHub Actions runner is establishing stealth browser context via assigned proxy.',
+            'targetUrl': 'https://www.youtube.com',
             'requiresManual': False,
             'instruction': '',
-            'nextStep': 'Facebook Account Authentication'
+            'nextStep': 'Navigate to Target Content'
         },
         {
-            'id': 'fb_auth',
-            'platform': 'facebook',
-            'platformName': 'Facebook',
-            'title': 'Facebook Login & Security Verification',
-            'description': 'GitHub Actions is waiting for Facebook credentials and 2FA approval.',
-            'targetUrl': 'https://www.facebook.com/login',
+            'id': 'yt_watch_auth',
+            'platform': 'youtube',
+            'platformName': 'YouTube',
+            'modeName': 'Video Watch & Engagement',
+            'title': 'YouTube Content Navigation',
+            'description': 'Browse to the target video or search keyword in this window.',
+            'targetUrl': 'https://www.youtube.com',
             'requiresManual': True,
-            'instruction': 'Please log in to your Facebook account in this browser window. Complete any two-factor or security checkpoints, then click "Continue Automation".',
-            'nextStep': 'Meta Business Suite & Pages Synchronization'
+            'instruction': 'Browse to your desired YouTube video or search query, then click "Continue Automation" to commence watch time retention.',
+            'nextStep': 'Execute Watch & Retention Automation'
         },
         {
-            'id': 'fb_ready',
-            'platform': 'facebook',
-            'platformName': 'Facebook',
-            'title': 'Facebook Automation Active & Controlled',
-            'description': 'GitHub Actions workflow has verified Facebook session cookies and is actively managing page feeds.',
-            'targetUrl': 'https://www.facebook.com',
+            'id': 'yt_watch_active',
+            'platform': 'youtube',
+            'platformName': 'YouTube',
+            'modeName': 'Video Watch & Engagement',
+            'title': 'Watch & Engagement In Progress',
+            'description': 'GitHub Actions runner is tracking watch sessions, stealth scrolling, and natural viewer interaction.',
+            'targetUrl': 'https://www.youtube.com',
             'requiresManual': False,
             'instruction': '',
-            'nextStep': 'Continuous background sync'
+            'nextStep': 'Continuous engagement cycling'
         }
     ],
-    'tiktok': [
+    'full': [
         {
-            'id': 'tt_init',
-            'platform': 'tiktok',
-            'platformName': 'TikTok',
-            'title': 'Connecting to GitHub Actions TikTok Engine',
-            'description': 'GitHub Actions runner is initializing TikTok Creator Studio automation pipeline.',
-            'targetUrl': 'https://www.tiktok.com/creator-center',
+            'id': 'yt_full_init',
+            'platform': 'youtube',
+            'platformName': 'YouTube',
+            'modeName': 'Full Automation Pipeline',
+            'title': 'Connecting Full-Stack YouTube Pipeline',
+            'description': 'GitHub Actions is initializing multi-stage YouTube Studio and Viewer automation pipeline.',
+            'targetUrl': 'https://studio.youtube.com',
             'requiresManual': False,
             'instruction': '',
-            'nextStep': 'Creator Authentication & Captcha'
+            'nextStep': 'Authentication & Studio Dashboard'
         },
         {
-            'id': 'tt_auth',
-            'platform': 'tiktok',
-            'platformName': 'TikTok',
-            'title': 'TikTok Creator Login & Puzzle Captcha',
-            'description': 'GitHub Actions has paused for user authorization and anti-bot verification.',
-            'targetUrl': 'https://www.tiktok.com/login',
+            'id': 'yt_full_auth',
+            'platform': 'youtube',
+            'platformName': 'YouTube',
+            'modeName': 'Full Automation Pipeline',
+            'title': 'Studio Account Sign-In & Verification',
+            'description': 'Authenticate your channel session in this browser window.',
+            'targetUrl': 'https://studio.youtube.com',
             'requiresManual': True,
-            'instruction': 'Please sign in to your TikTok Creator account. Complete the puzzle slider or SMS verification if shown, then click "Continue Automation".',
-            'nextStep': 'Upload Center & Analytics Pipeline'
+            'instruction': 'Sign in to your YouTube channel and click "Continue Automation".',
+            'nextStep': 'Run Studio Automation'
         },
         {
-            'id': 'tt_ready',
-            'platform': 'tiktok',
-            'platformName': 'TikTok',
-            'title': 'TikTok Automation Active & Controlled',
-            'description': 'GitHub Actions is now actively controlling TikTok Creator uploads and engagement metrics.',
-            'targetUrl': 'https://www.tiktok.com/creator-center/upload',
+            'id': 'yt_full_studio',
+            'platform': 'youtube',
+            'platformName': 'YouTube',
+            'modeName': 'Full Automation Pipeline',
+            'title': 'Studio Synchronization & Video Processing',
+            'description': 'Syncing videos, playlist tags, description templates, and analytics.',
+            'targetUrl': 'https://studio.youtube.com',
             'requiresManual': False,
             'instruction': '',
-            'nextStep': 'Automation cycle active'
-        }
-    ],
-    'instagram': [
-        {
-            'id': 'ig_init',
-            'platform': 'instagram',
-            'platformName': 'Instagram',
-            'title': 'Connecting to GitHub Actions Instagram Engine',
-            'description': 'GitHub Actions is connecting to Instagram Web API endpoints.',
-            'targetUrl': 'https://www.instagram.com',
-            'requiresManual': False,
-            'instruction': '',
-            'nextStep': 'Instagram Login Verification'
+            'nextStep': 'Switch to Viewer Engagement Loop'
         },
         {
-            'id': 'ig_auth',
-            'platform': 'instagram',
-            'platformName': 'Instagram',
-            'title': 'Instagram Login & Checkpoint',
-            'description': 'GitHub Actions is waiting for session cookies to be generated in the profile.',
-            'targetUrl': 'https://www.instagram.com/accounts/login/',
-            'requiresManual': True,
-            'instruction': 'Please enter your Instagram username and password. Complete security code verification if prompted, then click "Continue Automation".',
-            'nextStep': 'Direct Messaging & Feed Pipeline'
-        },
-        {
-            'id': 'ig_ready',
-            'platform': 'instagram',
-            'platformName': 'Instagram',
-            'title': 'Instagram Automation Active & Controlled',
-            'description': 'GitHub Actions workflow is successfully controlling the Instagram profile session.',
-            'targetUrl': 'https://www.instagram.com',
+            'id': 'yt_full_engagement',
+            'platform': 'youtube',
+            'platformName': 'YouTube',
+            'modeName': 'Full Automation Pipeline',
+            'title': 'YouTube Pipeline Fully Synchronized',
+            'description': 'All YouTube Studio workflows and engagement routines are active under GitHub Actions orchestration.',
+            'targetUrl': 'https://www.youtube.com',
             'requiresManual': False,
             'instruction': '',
-            'nextStep': 'Live profile monitoring'
-        }
-    ],
-    'twitter': [
-        {
-            'id': 'x_init',
-            'platform': 'twitter',
-            'platformName': 'X / Twitter',
-            'title': 'Connecting to GitHub Actions X (Twitter) Engine',
-            'description': 'GitHub Actions runner is initializing X automation environment.',
-            'targetUrl': 'https://x.com',
-            'requiresManual': False,
-            'instruction': '',
-            'nextStep': 'X / Twitter Sign-in'
-        },
-        {
-            'id': 'x_auth',
-            'platform': 'twitter',
-            'platformName': 'X / Twitter',
-            'title': 'X / Twitter Sign-in & Authentication',
-            'description': 'GitHub Actions is waiting for active session login.',
-            'targetUrl': 'https://x.com/i/flow/login',
-            'requiresManual': True,
-            'instruction': 'Please log in to your X (Twitter) account in this window. Complete confirmation if prompted, then click "Continue Automation".',
-            'nextStep': 'Timeline & Post Automation'
-        },
-        {
-            'id': 'x_ready',
-            'platform': 'twitter',
-            'platformName': 'X / Twitter',
-            'title': 'X / Twitter Automation Active & Controlled',
-            'description': 'GitHub Actions workflow is actively managing posting queues and timeline monitoring.',
-            'targetUrl': 'https://x.com/home',
-            'requiresManual': False,
-            'instruction': '',
-            'nextStep': 'Continuous background sync'
-        }
-    ],
-    'other': [
-        {
-            'id': 'other_init',
-            'platform': 'other',
-            'platformName': 'Custom Website',
-            'title': 'Connecting to GitHub Actions Automation for Target Site',
-            'description': 'GitHub Actions runner is preparing the automation driver for your target URL.',
-            'targetUrl': '',
-            'requiresManual': False,
-            'instruction': '',
-            'nextStep': 'Target Website Navigation & Session Setup'
-        },
-        {
-            'id': 'other_auth',
-            'platform': 'other',
-            'platformName': 'Custom Website',
-            'title': 'Target Website Authentication & Setup',
-            'description': 'GitHub Actions is waiting for user session initialization.',
-            'targetUrl': '',
-            'requiresManual': True,
-            'instruction': 'Please complete any login, captcha, or initial configuration on this website, then click "Continue Automation" to proceed.',
-            'nextStep': 'Custom Automation Execution'
-        },
-        {
-            'id': 'other_ready',
-            'platform': 'other',
-            'platformName': 'Custom Website',
-            'title': 'Custom Website Automation Running',
-            'description': 'GitHub Actions is now executing the guided automation workflow for this website.',
-            'targetUrl': '',
-            'requiresManual': False,
-            'instruction': '',
-            'nextStep': 'Continuous execution'
+            'nextStep': 'Autonomous scheduled runs'
         }
     ]
 }
 
-def build_workflow_steps(platforms, custom_url=None):
-    steps = []
-    if not platforms:
-        platforms = ['youtube']
-
-    for p in platforms:
-        p_key = p.lower().strip()
-        if p_key == 'x':
-            p_key = 'twitter'
-        tpls = PLATFORM_STEPS.get(p_key, PLATFORM_STEPS['other'])
-        for s in tpls:
-            item = dict(s)
-            if p_key == 'other' and custom_url:
-                item['targetUrl'] = custom_url
-            steps.append(item)
+def build_workflow_steps(platforms=None, custom_url=None, youtube_mode='studio'):
+    mode = (youtube_mode or 'studio').lower().strip()
+    if mode not in YOUTUBE_MODES:
+        mode = 'studio'
+    template = YOUTUBE_MODES.get(mode, YOUTUBE_MODES['studio'])
+    steps = [dict(s) for s in template]
+    if custom_url:
+        for s in steps:
+            if s.get('targetUrl') == 'https://www.youtube.com':
+                s['targetUrl'] = custom_url
     return steps
 
-def start_automation_session(profile_id, platforms, custom_url=None, github_account_id=None):
-    steps = build_workflow_steps(platforms, custom_url)
-    if not steps:
-        steps = build_workflow_steps(['youtube'])
+def start_automation_session(profile_id, platforms=None, custom_url=None, github_account_id=None, youtube_mode='studio', profile_name=None, assigned_proxy=None):
+    mode = (youtube_mode or 'studio').lower().strip()
+    if mode not in YOUTUBE_MODES:
+        mode = 'studio'
+
+    steps = build_workflow_steps(platforms, custom_url, youtube_mode=mode)
 
     account = None
     if github_account_id and github_account_id != 'default':
@@ -269,7 +183,7 @@ def start_automation_session(profile_id, platforms, custom_url=None, github_acco
     if not account:
         account = github_client.get_default_account()
 
-    repo = account.get('repo', 'ci-build-env') if account else 'ci-build-env'
+    repo = account.get('repo', 'sciencefiction879-cmyk/yt-proxy-runner') if account else 'sciencefiction879-cmyk/yt-proxy-runner'
     username = account.get('username', 'github-user') if account else 'github-user'
     token = account.get('token', '') if account else ''
 
@@ -277,18 +191,22 @@ def start_automation_session(profile_id, platforms, custom_url=None, github_acco
     if token and repo:
         try:
             run_id = github_client.dispatch_runner(token, repo, profile_id)
-            print(f'[🤖 GitHub Actions] Dispatched guided automation runner for {profile_id} (Run #{run_id})')
+            print(f'[🤖 GitHub Actions] Dispatched guided YouTube automation runner for {profile_id} (Run #{run_id})')
         except Exception as e:
             print(f'[!] GitHub Actions dispatch note: {e}')
-            run_id = 'local-gh-sim-' + str(int(time.time()))
+            run_id = 'gh-yt-run-' + str(int(time.time()))
 
     session = {
         'profileId': profile_id,
-        'platforms': platforms,
+        'profileName': profile_name or f"Profile {profile_id[:8]}",
+        'proxyLabel': assigned_proxy or "Assigned Proxy",
+        'platforms': ['youtube'],
+        'youtubeMode': mode,
+        'modeName': YOUTUBE_MODES[mode][0].get('modeName', 'YouTube Automation'),
         'customUrl': custom_url or '',
         'githubRepo': repo,
         'githubUser': username,
-        'githubRunId': run_id or ('GH-RUN-' + str(int(time.time()) % 100000)),
+        'githubRunId': run_id or ('GH-YT-' + str(int(time.time()) % 100000)),
         'status': 'running',
         'currentStepIndex': 0,
         'steps': steps,
@@ -311,14 +229,14 @@ def get_session_state(profile_id):
     if idx >= len(steps):
         current_step = {
             'id': 'completed',
-            'platform': 'all',
-            'platformName': 'Completed',
-            'title': 'All Automation Steps Completed!',
-            'description': 'GitHub Actions has finished executing all configured automation sequences for this profile.',
+            'platform': 'youtube',
+            'platformName': 'YouTube',
+            'title': 'YouTube Automation Active & Synchronized!',
+            'description': 'GitHub Actions has completed the setup workflow and is now running autonomous YouTube cycles.',
             'targetUrl': '',
             'requiresManual': False,
-            'instruction': 'Automation is complete. You may continue browsing or close the profile.',
-            'nextStep': 'Done'
+            'instruction': 'YouTube automation is actively synchronized. You may browse or leave this session running.',
+            'nextStep': 'Autonomous Loop Active'
         }
         is_completed = True
     else:
@@ -328,7 +246,11 @@ def get_session_state(profile_id):
     return {
         'active': True,
         'profileId': profile_id,
-        'platforms': sess.get('platforms', []),
+        'profileName': sess.get('profileName', f"Profile {profile_id[:8]}"),
+        'proxyLabel': sess.get('proxyLabel', 'Assigned Proxy'),
+        'platforms': ['youtube'],
+        'youtubeMode': sess.get('youtubeMode', 'studio'),
+        'modeName': sess.get('modeName', 'YouTube Automation'),
         'githubRepo': sess.get('githubRepo'),
         'githubUser': sess.get('githubUser'),
         'githubRunId': sess.get('githubRunId'),
@@ -357,7 +279,7 @@ def advance_step(profile_id, user_action=None):
         })
         sess['currentStepIndex'] = idx + 1
         sess['lastUpdate'] = time.time()
-        print(f'[🤖 GitHub Actions] Advanced profile {profile_id} to step {idx + 1}/{len(steps)}')
+        print(f'[🤖 YouTube Automation] Advanced profile {profile_id} to step {idx + 1}/{len(steps)}')
         return True, 'Step completed.'
 
     return False, 'All steps already completed.'

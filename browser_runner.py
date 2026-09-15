@@ -15,6 +15,7 @@ import proxy_tester
 import stealth_injector
 import country_proxies
 import automation_controller
+import proxies_pool
 
 RUNNING_PROFILES = {}
 
@@ -247,13 +248,18 @@ def prepare_profile_extension(user_data_dir, profile, allocated_ip=None, proxy_a
             p_name = profile.get('name') or f"Profile {p_id[:8]}"
             p_color = profile.get('color', '#0ea5e9')
             p_proxy_type = profile.get('proxyType', 'none')
-            p_proxy_label = "Direct"
-            if p_proxy_type == 'country':
-                p_proxy_label = profile.get('countryName') or profile.get('countryCode') or 'Country Proxy'
-            elif p_proxy_type == 'github':
-                p_proxy_label = "GitHub Cloud IP"
-            elif p_proxy_type == 'custom':
-                p_proxy_label = "Custom Proxy"
+            p_proxy_label = profile.get('assignedProxyLabel')
+            if not p_proxy_label:
+                if profile.get('assignedProxyNumber'):
+                    p_proxy_label = f"Proxy #{profile.get('assignedProxyNumber')}"
+                elif p_proxy_type == 'country':
+                    p_proxy_label = profile.get('countryName') or profile.get('countryCode') or 'Country Proxy'
+                elif p_proxy_type == 'github':
+                    p_proxy_label = "GitHub Cloud IP"
+                elif p_proxy_type == 'custom':
+                    p_proxy_label = "Custom Proxy"
+                else:
+                    p_proxy_label = "Direct"
 
             api_port = 5055
             try:
@@ -399,14 +405,24 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
     start_url = url_override or profile.get('startUrl', 'https://studio.youtube.com')
     is_mobile = profile.get('isMobile', False)
 
-    # Handle Guided Automation initialization
+    # Handle Guided YouTube Automation initialization
     auto_cfg = profile.get('automation') or {}
     if with_automation or (with_automation is None and auto_cfg.get('enabled')):
-        platforms = auto_cfg.get('platforms', ['youtube'])
+        yt_mode = auto_cfg.get('youtubeMode') or auto_cfg.get('mode', 'studio')
         custom_url = auto_cfg.get('customUrl', '')
         gh_acc = profile.get('githubAccountId') or auto_cfg.get('githubAccountId')
-        automation_controller.start_automation_session(profile_id, platforms, custom_url=custom_url, github_account_id=gh_acc)
-        steps = automation_controller.build_workflow_steps(platforms, custom_url)
+        p_name = profile.get('name') or f"Profile {profile_id[:8]}"
+        p_label = profile.get('assignedProxyLabel') or (f"Proxy #{profile.get('assignedProxyNumber')}" if profile.get('assignedProxyNumber') else "Assigned Proxy")
+        automation_controller.start_automation_session(
+            profile_id,
+            platforms=['youtube'],
+            custom_url=custom_url,
+            github_account_id=gh_acc,
+            youtube_mode=yt_mode,
+            profile_name=p_name,
+            assigned_proxy=p_label
+        )
+        steps = automation_controller.build_workflow_steps(['youtube'], custom_url=custom_url, youtube_mode=yt_mode)
         if steps and steps[0].get('targetUrl') and not url_override:
             start_url = steps[0]['targetUrl']
 
@@ -435,32 +451,55 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
             proxy_port = parsed.port
         except Exception as e:
             return False, f"GitHub Cloud Runner failed: {e}"
-    elif proxy_type == 'country':
-        country_code = profile.get('countryCode', 'PK')
+    assigned_label = profile.get('assignedProxyLabel')
+
+    # Resolve permanently assigned proxy from pool if assigned
+    pool_entry = None
+    if profile.get('assignedProxyId'):
+        pool_entry = proxies_pool.get_proxy_by_id(profile.get('assignedProxyId'))
+    if not pool_entry and profile.get('assignedProxyNumber'):
+        pool_entry = proxies_pool.get_proxy_by_number(profile.get('assignedProxyNumber'))
+
+    if pool_entry:
+        px_url = pool_entry.get('formatted')
+        allocated_ip = pool_entry.get('host')
+        if not assigned_label:
+            assigned_label = pool_entry.get('label') or f"Proxy #{pool_entry.get('number')}"
+        if pool_entry.get('timezone') and profile.get('timezone', 'auto') in ('auto', '', None):
+            profile['timezone'] = pool_entry.get('timezone')
+    else:
         px_url = profile.get('countryProxy') or profile.get('customProxy')
+        if not assigned_label and profile.get('assignedProxyNumber'):
+            assigned_label = f"Proxy #{profile.get('assignedProxyNumber')}"
 
-        # Check if saved proxy is still alive; auto-heal if dead
-        if px_url:
-            parsed_test = proxy_tester.parse_proxy_string(px_url)
-            if parsed_test:
-                is_alive, _, _ = country_proxies.test_proxy_socket(
-                    parsed_test.get('protocol'),
-                    parsed_test.get('host'),
-                    parsed_test.get('port'),
-                    timeout=2.0
-                )
-                if not is_alive:
-                    print(f"[-] Stale country proxy detected ({px_url}) for {profile_id}. Auto-healing fresh proxy...")
-                    px_url = None
-
-        if not px_url:
+    if proxy_type == 'github':
+        acc = _get_github_account(profile.get('githubAccountId'))
+        if not acc:
+            return False, "No GitHub Account configured. Please add a GitHub Account in 'GitHub Accounts' or switch this profile to Direct."
+        try:
+            if on_status_change:
+                on_status_change(profile_id, 'allocating_ip')
+            proxy_url, runner_ip, runner_id, gh_token, gh_repo = launch_github_runner(
+                profile_id, profile.get('githubAccountId')
+            )
+            allocated_ip = runner_ip
+            proxy_arg = f"--proxy-server={proxy_url}"
+            parsed = urlparse(proxy_url if "://" in proxy_url else f"socks5://{proxy_url}")
+            proxy_host = parsed.hostname
+            proxy_port = parsed.port
+        except Exception as e:
+            return False, f"GitHub Cloud Runner failed: {e}"
+    elif px_url or proxy_type in ('country', 'pool', 'custom'):
+        # STRICT PERMANENT ASSIGNED PROXY LOGIC:
+        # Never randomly switch to another proxy!
+        if not px_url and proxy_type == 'country':
+            country_code = profile.get('countryCode', 'US')
             best_px = country_proxies.get_best_country_proxy(country_code)
             if best_px:
                 px_url = best_px.get('formatted')
                 allocated_ip = best_px.get('host')
                 profile['countryProxy'] = px_url
                 profile['customProxy'] = px_url
-                # Lock and persist into DB so it stays permanently fixed
                 try:
                     db_path = os.path.join(DATA_DIR, 'profiles_db.json')
                     if os.path.exists(db_path):
@@ -475,37 +514,37 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
                         with open(db_path, 'w', encoding='utf-8') as dbf:
                             json.dump(p_list, dbf, indent=2)
                 except Exception as e:
-                    print(f"[!] Warning: failed to lock country proxy: {e}")
+                    print(f"[!] Warning: failed to lock initial country proxy: {e}")
 
         if not px_url:
             kill_switch = profile.get('killSwitch', True)
             if kill_switch:
-                c_name = country_proxies.COUNTRIES.get(country_code.upper(), {}).get('name', country_code)
-                return False, f"🛡️ Kill Switch Protected: No verified live HTTPS proxy was found for {c_name} ({country_code}). Your real IP is protected from leaking. Please select another country (e.g. US, DE, GB) or switch to Direct."
+                c_name = country_proxies.COUNTRIES.get((profile.get('countryCode') or 'US').upper(), {}).get('name', profile.get('countryCode', 'US'))
+                return False, f"🛡️ Kill Switch Protected: No proxy is currently assigned to this profile. Your real IP is protected from leaking. Please assign a proxy from the Proxy Pool in profile settings."
 
-        if px_url:
-            parsed_px = proxy_tester.parse_proxy_string(px_url)
-            if parsed_px:
-                proto = parsed_px.get('protocol', 'socks5')
-                h = parsed_px.get('host')
-                pt = parsed_px.get('port')
-                u = parsed_px.get('username')
-                p = parsed_px.get('password')
-                proxy_arg = f"--proxy-server={proto}://{h}:{pt}"
-                proxy_host = h
-                proxy_port = pt
-                if not allocated_ip:
-                    allocated_ip = h
-                if u and p:
-                    proxy_auth = (u, p)
-            else:
-                proxy_arg = f"--proxy-server={px_url}"
-                parsed = urlparse(px_url if "://" in px_url else f"socks5://{px_url}")
-                proxy_host = parsed.hostname
-                proxy_port = parsed.port or 1080
-                if not allocated_ip:
-                    allocated_ip = proxy_host
-        c_meta = country_proxies.COUNTRIES.get(country_code.upper(), {})
+        parsed_px = proxy_tester.parse_proxy_string(px_url)
+        if parsed_px:
+            proto = parsed_px.get('protocol', 'socks5')
+            h = parsed_px.get('host')
+            pt = parsed_px.get('port')
+            u = parsed_px.get('username')
+            p = parsed_px.get('password')
+            proxy_arg = f"--proxy-server={proto}://{h}:{pt}"
+            proxy_host = h
+            proxy_port = pt
+            if not allocated_ip:
+                allocated_ip = h
+            if u and p:
+                proxy_auth = (u, p)
+        else:
+            proxy_arg = f"--proxy-server={px_url}"
+            parsed = urlparse(px_url if "://" in px_url else f"socks5://{px_url}")
+            proxy_host = parsed.hostname
+            proxy_port = parsed.port or 1080
+            if not allocated_ip:
+                allocated_ip = proxy_host
+
+        c_meta = country_proxies.COUNTRIES.get((profile.get('countryCode') or 'US').upper(), {})
         if c_meta.get('timezone') and profile.get('timezone', 'auto') in ('auto', '', None):
             profile['timezone'] = c_meta['timezone']
     elif proxy_type in ('custom', 'direct') and custom_proxy:
@@ -528,48 +567,23 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
             proxy_port = parsed.port or 8080
 
     # STRICT KILL SWITCH:
-    # If proxy is configured, verify reachability first.
-    # If proxy is offline, strictly block launch so no direct traffic or real IP ever leaks!
+    # If proxy is configured, verify reachability before allowing browser to open.
+    # NEVER auto-switch or randomly change the user's assigned proxy!
     kill_switch = profile.get('killSwitch', True)
-    if proxy_type in ('country', 'github', 'custom') and kill_switch:
-        if not proxy_host or not proxy_arg:
-            return False, "🛡️ Kill Switch Blocked Launch: Profile is set to use a proxy, but none was allocated. Internet traffic is locked to prevent leaking your real IP."
+    if (proxy_type in ('country', 'github', 'custom', 'pool') or profile.get('assignedProxyId') or px_url) and proxy_arg and kill_switch:
+        if not proxy_host:
+            return False, "🛡️ Kill Switch Blocked Launch: Profile is set to use a proxy, but host could not be resolved. Internet traffic is locked to prevent leaking your real IP."
 
-        # Verify proxy socket reachability before allowing browser to open
         target_port = int(proxy_port) if ('proxy_port' in locals() and proxy_port) else (443 if 'pinggy' in str(proxy_host) else 1080)
         s_test = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s_test.settimeout(4.5)
+        s_test.settimeout(3.5)
         try:
             s_test.connect((proxy_host, target_port))
             s_test.close()
         except Exception as e:
             s_test.close()
-            # If country proxy, try immediate fresh live proxy fallback before giving up:
-            if proxy_type == 'country':
-                print(f"[-] Pre-flight proxy ({proxy_host}:{target_port}) failed ({e}). Auto-healing immediate live fallback...")
-                fresh_px = country_proxies.get_best_country_proxy(country_code)
-                if fresh_px:
-                    px_url = fresh_px.get('formatted')
-                    allocated_ip = fresh_px.get('host')
-                    profile['countryProxy'] = px_url
-                    profile['customProxy'] = px_url
-                    parsed_px = proxy_tester.parse_proxy_string(px_url)
-                    if parsed_px:
-                        proto = parsed_px.get('protocol', 'socks5')
-                        h = parsed_px.get('host')
-                        pt = parsed_px.get('port')
-                        proxy_arg = f"--proxy-server={proto}://{h}:{pt}"
-                        proxy_host = h
-                        proxy_port = pt
-                        print(f"[+] Successfully auto-healed fresh country proxy: {px_url}")
-                    else:
-                        c_name = country_proxies.COUNTRIES.get(country_code.upper(), {}).get('name', country_code)
-                        return False, f"🛡️ Kill Switch Protected: Proxy ({proxy_host}:{target_port}) is unreachable ({e}). The browser was prevented from opening so your real network and IP are never leaked."
-                else:
-                    c_name = country_proxies.COUNTRIES.get(country_code.upper(), {}).get('name', country_code)
-                    return False, f"🛡️ Kill Switch Protected: Proxy ({proxy_host}:{target_port}) is unreachable ({e}). The browser was prevented from opening so your real network and IP are never leaked."
-            else:
-                return False, f"🛡️ Kill Switch Protected: Proxy ({proxy_host}:{target_port}) is unreachable ({e}). The browser was prevented from opening so your real network and IP are never leaked."
+            disp_name = assigned_label or (f"Proxy #{pool_entry.get('number')}" if pool_entry else f"Proxy ({proxy_host}:{target_port})")
+            return False, f"🛡️ Kill Switch Protected: Permanently assigned {disp_name} is currently unreachable ({e}). The browser was prevented from opening so your real network and IP are never leaked. Check your network connection or select another proxy."
 
     try:
         db_path = os.path.join(DATA_DIR, 'profiles_db.json')
@@ -582,16 +596,9 @@ def launch_profile_browser(profile, url_override=None, on_status_change=None, wi
                     if allocated_ip and p_item.get('allocatedIp') != allocated_ip:
                         p_item['allocatedIp'] = allocated_ip
                         updated = True
-                    if proxy_type == 'country' and px_url:
-                        if p_item.get('countryProxy') != px_url:
-                            p_item['countryProxy'] = px_url
-                            updated = True
-                        if p_item.get('customProxy') != px_url:
-                            p_item['customProxy'] = px_url
-                            updated = True
-                        if p_item.get('countryCode') != country_code:
-                            p_item['countryCode'] = country_code
-                            updated = True
+                    if assigned_label and not p_item.get('assignedProxyLabel'):
+                        p_item['assignedProxyLabel'] = assigned_label
+                        updated = True
             if updated:
                 with open(db_path, 'w', encoding='utf-8') as dbf:
                     json.dump(p_list, dbf, indent=2)

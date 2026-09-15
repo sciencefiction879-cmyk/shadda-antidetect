@@ -20,6 +20,7 @@ import ads_manager
 import auto_updater
 import proxy_tester
 import country_proxies
+import proxies_pool
 import automation_controller
 
 PORT = 5055
@@ -46,7 +47,7 @@ if not os.path.exists(github_client.ACCOUNTS_FILE):
 DB_FILE = os.path.join(DATA_DIR, 'profiles_db.json')
 STATIC_DIR = os.path.join(BUNDLE_DIR, 'static')
 
-UPDATE_MANAGER = auto_updater.UpdateManager(ads_manager.load_ads_config, "0.2")
+UPDATE_MANAGER = auto_updater.UpdateManager(ads_manager.load_ads_config, "0.3")
 
 CLOUD_SYNC_CONFIG_FILE = os.path.join(DATA_DIR, 'cloud_sync_config.json')
 DEFAULT_FIREBASE_URL = "https://user-ananlytics-default-rtdb.firebaseio.com"
@@ -132,7 +133,7 @@ def fetch_cloud_user(username_or_email: str):
         cfg = load_cloud_sync_config()
         fb_url = (cfg.get('firebaseUrl') or DEFAULT_FIREBASE_URL).rstrip('/')
         url = f"{fb_url}/users/{safe_key}.json"
-        req = urllib.request.Request(url, headers={'User-Agent': 'ShaddaAntiDetect/0.2'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'ShaddaAntiDetect/0.3'})
         with urllib.request.urlopen(req, timeout=5) as resp:
             raw = resp.read().decode('utf-8')
             if raw and raw != 'null':
@@ -244,6 +245,10 @@ class ProfileHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_url = urlparse(self.path)
         path = parsed_url.path
+
+        if path == '/api/proxies/pool':
+            profiles = load_db()
+            return self._send_json(proxies_pool.get_pool_with_assignments(profiles))
 
         if path == '/api/country-proxies':
             return self._send_json(country_proxies.get_countries_summary())
@@ -362,7 +367,7 @@ class ProfileHandler(BaseHTTPRequestHandler):
         body = json.loads(raw_body) if raw_body else {}
 
         if path in ('/api/update/download', '/api/update/apply'):
-            return self._send_json({'success': True, 'message': 'Running latest version 0.2'})
+            return self._send_json({'success': True, 'message': 'Running latest version 0.3'})
 
         if path == '/api/profiles':
             profiles = load_db()
@@ -418,10 +423,24 @@ class ProfileHandler(BaseHTTPRequestHandler):
 
         if path.startswith('/api/automation/') and path.endswith('/start'):
             pid = path.split('/')[3]
-            platforms = body.get('platforms', ['youtube'])
+            yt_mode = body.get('youtubeMode') or body.get('mode', 'studio')
             custom_url = body.get('customUrl', '')
             gh_acc = body.get('githubAccountId')
-            sess = automation_controller.start_automation_session(pid, platforms, custom_url, gh_acc)
+
+            profiles = load_db()
+            prof = next((p for p in profiles if p.get('id') == pid), {})
+            p_name = prof.get('name') or f"Profile {pid[:8]}"
+            p_label = prof.get('assignedProxyLabel') or (f"Proxy #{prof.get('assignedProxyNumber')}" if prof.get('assignedProxyNumber') else "Assigned Proxy")
+
+            sess = automation_controller.start_automation_session(
+                pid,
+                platforms=['youtube'],
+                custom_url=custom_url,
+                github_account_id=gh_acc,
+                youtube_mode=yt_mode,
+                profile_name=p_name,
+                assigned_proxy=p_label
+            )
             return self._send_json({'success': True, 'session': sess})
 
         if path.startswith('/api/profiles/') and path.endswith('/stop'):
@@ -488,6 +507,14 @@ class ProfileHandler(BaseHTTPRequestHandler):
             acc_id = path.split('/')[3]
             github_client.set_default_account(acc_id)
             return self._send_json({'success': True})
+
+        if path == '/api/proxies/pool/add':
+            raw = body.get('proxy') or body.get('raw', '')
+            cc = body.get('countryCode', 'US')
+            ok, res = proxies_pool.add_proxy_to_pool(raw, country_code=cc)
+            if ok:
+                return self._send_json({'success': True, 'proxy': res})
+            return self._send_json({'success': False, 'error': res}, status=400)
 
         if path == '/api/proxy/parse':
             raw = body.get('raw', '')
@@ -752,7 +779,7 @@ class ProfileHandler(BaseHTTPRequestHandler):
 def run_server():
     server = create_app_server()
     print("=" * 60)
-    print("  🚀 Shadda Anti Detect v0.2 running at:")
+    print("  🚀 Shadda Anti Detect v0.3 running at:")
     print(f"     http://127.0.0.1:{PORT}")
     print("=" * 60)
 
