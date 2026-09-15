@@ -1032,10 +1032,9 @@ function setupEventListeners() {
   }
 
   // Country select in Profile Modal
-  const formCountrySel = document.getElementById("formCountrySelect");
   if (formCountrySel) {
     formCountrySel.addEventListener("change", (e) => {
-      loadCountryProxiesInForm(e.target.value);
+      try { loadCountryProxiesInForm(e.target.value); } catch (_) {}
     });
   }
 
