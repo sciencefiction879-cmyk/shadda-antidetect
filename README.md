@@ -31,7 +31,7 @@ Official binaries are compiled and published directly via GitHub Actions:
 
 | Platform | Package | Download Link |
 | :--- | :--- | :--- |
-| **Android Mobile (Direct)** | `Shadda-Anti-Detect.apk` (Android 7.0 - 15+) | [📲 **Download Android APK (Direct)**](https://raw.githubusercontent.com/sciencefiction879-cmyk/shadda-antidetect/main/dist/Shadda-Anti-Detect.apk) |
+| **Android Mobile (Direct)** | `Shadda-Anti-Detect.apk` (Android 7.0 - 15+) | [📲 **Download Android APK (Direct)**](https://raw.githubusercontent.com/sciencefiction879-cmyk/shadda-antidetect/main/releases/Shadda-Anti-Detect.apk) |
 | **Android Mobile (Release Mirror)** | `Shadda-Anti-Detect.apk` (Alternative Mirror) | [📲 **GitHub Release Mirror**](https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.3/Shadda-Anti-Detect.apk) |
 | **Windows 10 / 11 (64-bit)** | `Shadda-Anti-Detect.exe` (Standalone Executable) | [💻 **Download Windows EXE**](https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.3/Shadda-Anti-Detect.exe) |
 | **Windows Portable** | `Shadda-Anti-Detect-Windows-x64.zip` (Portable ZIP) | [📦 **Download Windows Portable ZIP**](https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.3/Shadda-Anti-Detect-Windows-x64.zip) |

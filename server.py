@@ -251,11 +251,12 @@ class ProfileHandler(BaseHTTPRequestHandler):
 
         if path in ('/download/apk', '/Shadda-Anti-Detect.apk', '/download/Shadda-Anti-Detect.apk'):
             apk_candidates = [
-                os.path.join(BASE_DIR, 'dist', 'Shadda-Anti-Detect.apk'),
                 os.path.join(BASE_DIR, 'releases', 'Shadda-Anti-Detect.apk'),
+                os.path.join(BASE_DIR, 'dist', 'Shadda-Anti-Detect.apk'),
+                os.path.join(BUNDLE_DIR, 'releases', 'Shadda-Anti-Detect.apk'),
+                os.path.join(BUNDLE_DIR, 'dist', 'Shadda-Anti-Detect.apk'),
                 os.path.join(DATA_DIR, 'Shadda-Anti-Detect.apk'),
                 os.path.join(BASE_DIR, 'Shadda-Anti-Detect.apk'),
-                os.path.join(BUNDLE_DIR, 'dist', 'Shadda-Anti-Detect.apk'),
             ]
             for ap in apk_candidates:
                 if os.path.exists(ap) and os.path.getsize(ap) > 1000000:
@@ -291,7 +292,7 @@ class ProfileHandler(BaseHTTPRequestHandler):
                 'filename': 'Shadda-Anti-Detect.apk',
                 'directLocalUrl': f"http://{local_ip}:{PORT}/download/apk",
                 'githubReleaseUrl': 'https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.3/Shadda-Anti-Detect.apk',
-                'rawGitUrl': 'https://raw.githubusercontent.com/sciencefiction879-cmyk/shadda-antidetect/main/dist/Shadda-Anti-Detect.apk',
+                'rawGitUrl': 'https://raw.githubusercontent.com/sciencefiction879-cmyk/shadda-antidetect/main/releases/Shadda-Anti-Detect.apk',
                 'localIp': local_ip,
                 'port': PORT
             })

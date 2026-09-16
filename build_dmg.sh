@@ -27,6 +27,7 @@ echo "[1/4] Building standalone macOS App Bundle with PyInstaller..."
     --name "Shadda Anti Detect" \
     --icon "ShaddaAntiDetect.icns" \
     --add-data "static:static" \
+    --add-data "releases:releases" \
     --add-data "anti_detect_extension:anti_detect_extension" \
     --add-data "bootstrap_config.json:." \
     --add-data "github_client.pyc:." \
