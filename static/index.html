@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="app.css">
 </head>
+<body>
   <!-- Auth Screen: User Login & Registration -->
   <div id="authScreen" class="auth-screen" style="display: none;">
     <div class="auth-card">
@@ -148,6 +149,11 @@
         <button class="btn-secondary" id="btnDownloadApkNav" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: var(--radius-md); color: #34d399; font-size: 13px; font-weight: 700; cursor: pointer;" title="Download Full Working Android APK">
           <span style="font-size: 15px;">📲</span>
           <span>Android APK</span>
+        </button>
+
+        <button class="btn-secondary" id="btnYoutubeUploaderNav" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: var(--radius-md); color: #f87171; font-size: 13px; font-weight: 700; cursor: pointer;" title="Optional YouTube Cloud Uploader & GitHub Automation">
+          <span style="font-size: 15px;">▶️</span>
+          <span>YouTube Uploader</span>
         </button>
 
         <button class="btn-secondary" id="btnGithubAccounts" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 13px; font-weight: 600; cursor: pointer;">
@@ -1058,6 +1064,205 @@
         <div style="font-size: 11.5px; color: var(--text-muted); line-height: 1.5; padding: 10px 14px; background: rgba(0,0,0,0.2); border-radius: 8px;">
           <strong style="color: var(--text-primary);">💡 Android Installation Tip:</strong>
           Agar Chrome "File might be harmful" ka warning de tou <strong>"Download anyway"</strong> par click karein. Phir notification par tap karke <strong>"Install"</strong> karein.
+        </div>
+      </div>
+    </div>
+  <!-- Modal: Optional YouTube Cloud Uploader & GitHub Automation -->
+  <div class="modal-overlay" id="youtubeUploaderModal" style="display: none;">
+    <div class="modal-card" style="max-width: 820px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="flex-shrink: 0; border-bottom: 1px solid var(--border-color); padding: 18px 24px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            ▶️
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: var(--text-primary);">YouTube Cloud Uploader</h3>
+              <span style="font-size: 10px; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 8px; border-radius: 999px; text-transform: uppercase;">Optional Cloud Engine</span>
+            </div>
+            <p style="margin: 3px 0 0 0; font-size: 12px; color: var(--text-muted);">
+              Automated video downloads (MEGA / Drive) and YouTube uploads running on free GitHub Actions runners.
+            </p>
+          </div>
+        </div>
+        <button type="button" class="modal-close" id="btnYoutubeUploaderClose">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px 24px; overflow-y: auto; flex: 1;">
+        <!-- Status & Quick Trigger Strip -->
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="ytConnStatusDot" style="width: 10px; height: 10px; border-radius: 50%; background: #64748b; display: inline-block;"></span>
+            <div>
+              <div id="ytConnStatusText" style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                Checking GitHub Connection...
+              </div>
+              <div id="ytConnDetails" style="font-size: 11.5px; color: var(--text-muted);">
+                Repo: <code id="lblYtRepo">sciencefiction879-cmyk/youtube-automation-with-github</code>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" id="btnTestYtGithub" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;">
+              🔍 Test Connection
+            </button>
+            <a id="btnOpenYtActions" href="https://github.com/sciencefiction879-cmyk/youtube-automation-with-github/actions" target="_blank" class="btn-secondary" style="font-size: 12px; padding: 6px 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+              <span>GitHub Runs ↗</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Tab / Sections Form -->
+        <form id="formYoutubeUploader">
+          <!-- 1. GitHub Account & Repo Linking -->
+          <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; margin-bottom: 18px;">
+            <h4 style="font-size: 13px; font-weight: 700; color: var(--accent-cyan); margin: 0 0 12px 0; display: flex; align-items: center; gap: 6px;">
+              <span>🐙 1. GitHub Account & Repository Linking</span>
+            </h4>
+            <div class="form-row">
+              <div class="form-group flex-2">
+                <label style="font-size: 12px;">GitHub Repository (owner/repo) *</label>
+                <input type="text" id="inputYtRepo" placeholder="username/repository" required value="sciencefiction879-cmyk/youtube-automation-with-github">
+              </div>
+              <div class="form-group flex-1">
+                <label style="font-size: 12px;">Workflow File *</label>
+                <input type="text" id="inputYtWorkflow" placeholder="upload.yml" required value="upload.yml">
+              </div>
+              <div class="form-group flex-1">
+                <label style="font-size: 12px;">Branch</label>
+                <input type="text" id="inputYtBranch" placeholder="main" value="main">
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 12px;">Custom Personal Access Token (PAT) (Optional if account connected)</label>
+              <input type="password" id="inputYtToken" placeholder="ghp_... (leave empty to use default connected account)" style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+              <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">
+                Requires <code>repo</code> and <code>workflow</code> scopes.
+              </span>
+            </div>
+          </div>
+
+          <!-- 2. Video Cloud Source ("Apna Uploader") -->
+          <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; margin-bottom: 18px;">
+            <h4 style="font-size: 13px; font-weight: 700; color: #f59e0b; margin: 0 0 12px 0; display: flex; align-items: center; gap: 6px;">
+              <span>📁 2. Video Cloud Storage Source ("Apna Uploader")</span>
+            </h4>
+            <div class="form-group">
+              <label style="font-size: 12px;">MEGA Folder URL (Cloud Videos & Shorts)</label>
+              <input type="url" id="inputYtMegaUrl" placeholder="https://mega.nz/folder/..." value="https://mega.nz/folder/OORhyJ4A#hv02IpcssHV3xX6TYvU6Eg">
+              <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">
+                Videos placed in this MEGA folder will be automatically downloaded by the GitHub runner.
+              </span>
+            </div>
+          </div>
+
+          <!-- 3. Custom Scheduling Slots -->
+          <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; margin-bottom: 18px;">
+            <h4 style="font-size: 13px; font-weight: 700; color: #38bdf8; margin: 0 0 12px 0; display: flex; align-items: center; gap: 6px;">
+              <span>⏰ 3. Custom Upload Time Slots (Pakistan / Local Time)</span>
+            </h4>
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label style="font-size: 12px;">Slot 1 Upload Time (PKT)</label>
+                <input type="time" id="inputYtSlot1" value="19:00">
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">Default: 7:00 PM PKT (14:00 UTC)</span>
+              </div>
+              <div class="form-group flex-1">
+                <label style="font-size: 12px;">Slot 2 Upload Time (PKT)</label>
+                <input type="time" id="inputYtSlot2" value="22:00">
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">Default: 10:00 PM PKT (17:00 UTC)</span>
+              </div>
+              <div class="form-group flex-1">
+                <label style="font-size: 12px;">Timezone</label>
+                <input type="text" id="inputYtTimezone" value="Asia/Karachi (PKT, UTC+5)" readonly style="opacity: 0.8;">
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. YouTube Channel & Metadata Defaults -->
+          <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; margin-bottom: 18px;">
+            <h4 style="font-size: 13px; font-weight: 700; color: #ec4899; margin: 0 0 12px 0; display: flex; align-items: center; gap: 6px;">
+              <span>📺 4. YouTube Channel & Default Metadata</span>
+            </h4>
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label style="font-size: 12px;">Channel Name</label>
+                <input type="text" id="inputYtChannelName" value="Sci-Fi & 3D Animation Chronicles">
+              </div>
+              <div class="form-group flex-1">
+                <label style="font-size: 12px;">Owner Gmail</label>
+                <input type="email" id="inputYtChannelEmail" value="sciencefiction879@gmail.com">
+              </div>
+              <div class="form-group flex-1">
+                <label style="font-size: 12px;">Default Privacy</label>
+                <select id="selectYtPrivacy">
+                  <option value="public" selected>Public</option>
+                  <option value="unlisted">Unlisted</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label style="font-size: 12px;">Default Tags (comma separated)</label>
+              <input type="text" id="inputYtTags" value="Sci-Fi, 3D Animation, Shorts, Trending, CGI">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 12px;">Description Footer</label>
+              <textarea id="inputYtFooter" rows="2" style="font-size: 12px; resize: vertical;">🔔 Subscribe to the channel for more epic 3D Sci-Fi and Animated adventures!</textarea>
+            </div>
+          </div>
+
+          <!-- Save Button Strip -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div id="ytSaveMsg" style="font-size: 12px; font-weight: 600;"></div>
+            <button type="button" id="btnSaveYtConfig" class="btn-primary" style="padding: 10px 22px;">
+              💾 Save Uploader Settings
+            </button>
+          </div>
+        </form>
+
+        <!-- 5. 1-Click Dispatch & Live Execution Strip -->
+        <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: var(--radius-md); padding: 18px; margin-bottom: 20px;">
+          <h4 style="font-size: 14px; font-weight: 800; color: #f87171; margin: 0 0 12px 0; display: flex; align-items: center; gap: 8px;">
+            <span>🚀 Instant Upload Dispatcher</span>
+          </h4>
+          <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 14px 0; line-height: 1.5;">
+            Trigger the cloud workflow immediately right now without waiting for scheduled time. GitHub will download the next video from MEGA and upload it to YouTube.
+          </p>
+          <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="font-size: 12px; font-weight: 600;">Slot:</label>
+              <select id="selectYtDispatchSlot" style="padding: 6px 12px; font-size: 12px;">
+                <option value="slot1" selected>Slot 1 (7:00 PM PKT)</option>
+                <option value="slot2">Slot 2 (10:00 PM PKT)</option>
+              </select>
+            </div>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+              <input type="checkbox" id="chkYtDryRun">
+              <span>Dry Run (Simulate only)</span>
+            </label>
+            <button type="button" id="btnTriggerYtUpload" class="btn-primary" style="background: #ef4444; border-color: #dc2626; padding: 8px 18px; font-weight: 700;">
+              ⚡ Launch Upload Now (GitHub)
+            </button>
+          </div>
+          <div id="ytDispatchFeedback" style="margin-top: 10px; font-size: 12px;"></div>
+        </div>
+
+        <!-- 6. Live Workflow Runs List -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h4 style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin: 0;">
+              📊 Recent GitHub Actions Workflow Runs
+            </h4>
+            <button type="button" id="btnRefreshYtRuns" class="btn-text" style="font-size: 11.5px; color: var(--accent-cyan); cursor: pointer; background: transparent; border: none;">
+              🔄 Refresh Runs
+            </button>
+          </div>
+          <div id="ytWorkflowRunsList" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="padding: 14px; text-align: center; color: var(--text-muted); font-size: 12px;">
+              Loading recent workflow history...
+            </div>
+          </div>
         </div>
       </div>
     </div>

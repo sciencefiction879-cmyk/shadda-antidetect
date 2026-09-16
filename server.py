@@ -22,6 +22,7 @@ import proxy_tester
 import country_proxies
 import proxies_pool
 import automation_controller
+import youtube_uploader_manager
 
 PORT = 5055
 
@@ -339,6 +340,12 @@ class ProfileHandler(BaseHTTPRequestHandler):
             v = github_client.verify_token(acc.get('token', ''))
             return self._send_json(v)
 
+        if path == '/api/youtube-uploader/config':
+            return self._send_json(youtube_uploader_manager.load_config())
+
+        if path == '/api/youtube-uploader/status':
+            return self._send_json(youtube_uploader_manager.get_workflow_runs())
+
         if path == '/api/auth/session':
             sess = get_session()
             if sess and sess.get('username'):
@@ -558,6 +565,26 @@ class ProfileHandler(BaseHTTPRequestHandler):
             acc_id = path.split('/')[3]
             github_client.set_default_account(acc_id)
             return self._send_json({'success': True})
+
+        if path == '/api/youtube-uploader/config':
+            ok, cfg = youtube_uploader_manager.save_config(body)
+            return self._send_json({'success': ok, 'config': cfg})
+
+        if path == '/api/youtube-uploader/verify-github':
+            res = youtube_uploader_manager.verify_github_repo(token=body.get('token'), repo=body.get('repo'))
+            return self._send_json(res)
+
+        if path == '/api/youtube-uploader/trigger':
+            res = youtube_uploader_manager.trigger_workflow(
+                slot=body.get('slot', 'slot1'),
+                dry_run=body.get('dry_run', False),
+                force_video=body.get('force_video', ''),
+                token=body.get('token'),
+                repo=body.get('repo'),
+                workflow_file=body.get('workflow_file'),
+                branch=body.get('branch')
+            )
+            return self._send_json(res)
 
         if path == '/api/proxies/pool/add':
             raw = body.get('proxy') or body.get('raw', '')

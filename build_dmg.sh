@@ -40,6 +40,7 @@ echo "[1/4] Building standalone macOS App Bundle with PyInstaller..."
     --hidden-import "browser_runner" \
     --hidden-import "stealth_injector" \
     --hidden-import "github_client" \
+    --hidden-import "youtube_uploader_manager" \
     --hidden-import "webview" \
     --hidden-import "objc" \
     --hidden-import "WebKit" \

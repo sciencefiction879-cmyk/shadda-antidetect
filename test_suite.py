@@ -225,6 +225,45 @@ class ComprehensiveSystemTest(unittest.TestCase):
         self.assertFalse(p2_free['isAssigned'])
         self.assertEqual(p2_free['statusBadge'], 'Available')
 
+    def test_08_youtube_uploader_manager_and_endpoints(self):
+        """Verify optional YouTube Cloud Uploader configuration and API endpoints"""
+        import youtube_uploader_manager as yum
+        cfg = yum.load_config()
+        self.assertIn('github_repo', cfg)
+        self.assertIn('mega_folder_url', cfg)
+        self.assertIn('slot1_time_pkt', cfg)
+
+        # Test save config
+        ok, updated = yum.save_config({
+            'channel_name': 'Automated Sci-Fi Test Channel',
+            'slot1_time_pkt': '18:30',
+            'storage_source': 'mega'
+        })
+        self.assertTrue(ok)
+        self.assertEqual(updated['channel_name'], 'Automated Sci-Fi Test Channel')
+        self.assertEqual(updated['slot1_time_pkt'], '18:30')
+
+        # Test HTTP API endpoints
+        base = f"http://127.0.0.1:{self.test_port}"
+        req = urllib.request.Request(f"{base}/api/youtube-uploader/config")
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+            res_cfg = json.loads(resp.read().decode('utf-8'))
+            self.assertEqual(res_cfg.get('channel_name'), 'Automated Sci-Fi Test Channel')
+
+        # Test GitHub Verification endpoint with invalid token (graceful error handling)
+        verify_req = urllib.request.Request(
+            f"{base}/api/youtube-uploader/verify-github",
+            data=json.dumps({'token': 'ghp_invalid_dummy_token_12345', 'repo': 'owner/invalid-test-repo'}).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(verify_req) as resp:
+            self.assertEqual(resp.status, 200)
+            verify_res = json.loads(resp.read().decode('utf-8'))
+            self.assertFalse(verify_res.get('success'))
+            self.assertIn('error', verify_res)
+
 
 if __name__ == '__main__':
     unittest.main()
+

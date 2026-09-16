@@ -42,16 +42,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  await loadUserAgents();
-  await loadGithubAccounts();
-  await loadCountryCatalog();
-  await loadProfiles();
-  await loadAds();
-  setupEventListeners();
-  initBuiltInUpdater();
-  initDonationFeature();
-  await CloudSyncManager.init();
-  await AuthManager.init();
+  try { await loadUserAgents(); } catch (e) { console.warn("loadUserAgents:", e); }
+  try { await loadGithubAccounts(); } catch (e) { console.warn("loadGithubAccounts:", e); }
+  try { await loadCountryCatalog(); } catch (e) { console.warn("loadCountryCatalog:", e); }
+  try { await loadProfiles(); } catch (e) { console.warn("loadProfiles:", e); }
+  try { await loadAds(); } catch (e) { console.warn("loadAds:", e); }
+  try { setupEventListeners(); } catch (e) { console.warn("setupEventListeners:", e); }
+  try { initBuiltInUpdater(); } catch (e) { console.warn("initBuiltInUpdater:", e); }
+  try { initDonationFeature(); } catch (e) { console.warn("initDonationFeature:", e); }
+  try { await CloudSyncManager.init(); } catch (e) { console.warn("CloudSyncManager:", e); }
+  try { await AuthManager.init(); } catch (e) { console.warn("AuthManager:", e); }
+  try { initYouTubeUploaderModule(); } catch (e) { console.warn("initYouTubeUploaderModule:", e); }
 
   // ── Admin detection: show Edit Wallets button only when admin panel is running ──
   detectAdminMode();
@@ -2592,8 +2593,9 @@ const AuthManager = {
       console.warn("Session check error:", e);
     }
 
-    // Default to showing auth screen if not logged in
-    this.showAuth();
+    // Default to app in local offline / guest mode so user NEVER sees a blank or locked screen
+    this.isGuestMode = true;
+    this.showApp();
   },
 
   setupListeners() {
@@ -3171,3 +3173,294 @@ const CloudSyncManager = {
 };
 
 window.CloudSyncManager = CloudSyncManager;
+
+// ==========================================
+// OPTIONAL YOUTUBE CLOUD UPLOADER & GITHUB AUTOMATION MODULE
+// ==========================================
+function initYouTubeUploaderModule() {
+  const btnNav = document.getElementById("btnYoutubeUploaderNav");
+  const modal = document.getElementById("youtubeUploaderModal");
+  const btnClose = document.getElementById("btnYoutubeUploaderClose");
+  const btnTest = document.getElementById("btnTestYtGithub");
+  const btnSave = document.getElementById("btnSaveYtConfig");
+  const btnTrigger = document.getElementById("btnTriggerYtUpload");
+  const btnRefreshRuns = document.getElementById("btnRefreshYtRuns");
+
+  if (!btnNav || !modal) return;
+
+  btnNav.addEventListener("click", () => {
+    modal.style.display = "flex";
+    loadYtUploaderConfig();
+  });
+
+  if (btnClose) {
+    btnClose.addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+  }
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.style.display = "none";
+  });
+
+  if (btnTest) {
+    btnTest.addEventListener("click", async () => {
+      const repo = document.getElementById("inputYtRepo")?.value?.trim();
+      const token = document.getElementById("inputYtToken")?.value?.trim();
+      btnTest.disabled = true;
+      btnTest.textContent = "Testing...";
+      try {
+        const res = await fetch("/api/youtube-uploader/verify-github", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ repo, token })
+        });
+        const data = await res.json();
+        updateYtConnectionUI(data);
+      } catch (err) {
+        updateYtConnectionUI({ success: false, error: err.message });
+      } finally {
+        btnTest.disabled = false;
+        btnTest.textContent = "🔍 Test Connection";
+      }
+    });
+  }
+
+  if (btnSave) {
+    btnSave.addEventListener("click", async () => {
+      const config = {
+        github_repo: document.getElementById("inputYtRepo")?.value?.trim(),
+        workflow_file: document.getElementById("inputYtWorkflow")?.value?.trim(),
+        branch: document.getElementById("inputYtBranch")?.value?.trim() || "main",
+        custom_token: document.getElementById("inputYtToken")?.value?.trim(),
+        mega_folder_url: document.getElementById("inputYtMegaUrl")?.value?.trim(),
+        slot1_time_pkt: document.getElementById("inputYtSlot1")?.value?.trim(),
+        slot2_time_pkt: document.getElementById("inputYtSlot2")?.value?.trim(),
+        channel_name: document.getElementById("inputYtChannelName")?.value?.trim(),
+        channel_email: document.getElementById("inputYtChannelEmail")?.value?.trim(),
+        default_privacy: document.getElementById("selectYtPrivacy")?.value || "public",
+        tags: (document.getElementById("inputYtTags")?.value || "").split(",").map(t => t.trim()).filter(Boolean),
+        description_footer: document.getElementById("inputYtFooter")?.value
+      };
+
+      const msgEl = document.getElementById("ytSaveMsg");
+      btnSave.disabled = true;
+      btnSave.textContent = "Saving...";
+      try {
+        const res = await fetch("/api/youtube-uploader/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(config)
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (msgEl) {
+            msgEl.textContent = "✅ Settings saved successfully!";
+            msgEl.style.color = "#34d399";
+            setTimeout(() => { msgEl.textContent = ""; }, 4000);
+          }
+        } else {
+          if (msgEl) {
+            msgEl.textContent = "❌ Failed to save: " + (data.error || "Unknown error");
+            msgEl.style.color = "#f87171";
+          }
+        }
+      } catch (err) {
+        if (msgEl) {
+          msgEl.textContent = "❌ Error: " + err.message;
+          msgEl.style.color = "#f87171";
+        }
+      } finally {
+        btnSave.disabled = false;
+        btnSave.textContent = "💾 Save Uploader Settings";
+      }
+    });
+  }
+
+  if (btnTrigger) {
+    btnTrigger.addEventListener("click", async () => {
+      const slot = document.getElementById("selectYtDispatchSlot")?.value || "slot1";
+      const dryRun = document.getElementById("chkYtDryRun")?.checked || false;
+      const repo = document.getElementById("inputYtRepo")?.value?.trim();
+      const token = document.getElementById("inputYtToken")?.value?.trim();
+      const workflowFile = document.getElementById("inputYtWorkflow")?.value?.trim();
+      const branch = document.getElementById("inputYtBranch")?.value?.trim();
+
+      const feedbackEl = document.getElementById("ytDispatchFeedback");
+      btnTrigger.disabled = true;
+      btnTrigger.textContent = "⏳ Dispatching to GitHub Actions...";
+      if (feedbackEl) feedbackEl.innerHTML = `<span style="color: var(--accent-cyan);">Dispatching workflow event to GitHub...</span>`;
+
+      try {
+        const res = await fetch("/api/youtube-uploader/trigger", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slot,
+            dry_run: dryRun,
+            repo,
+            token,
+            workflow_file: workflowFile,
+            branch
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (feedbackEl) {
+            feedbackEl.innerHTML = `<span style="color: #34d399; font-weight: 700;">🚀 Success! ${data.message}</span> <a href="${data.actions_url}" target="_blank" style="color: var(--accent-cyan); text-decoration: underline; margin-left: 8px;">View Run on GitHub ↗</a>`;
+          }
+          setTimeout(loadYtWorkflowRuns, 2500);
+        } else {
+          if (feedbackEl) {
+            feedbackEl.innerHTML = `<span style="color: #f87171; font-weight: 700;">❌ Dispatch Failed: ${data.error}</span>`;
+          }
+        }
+      } catch (err) {
+        if (feedbackEl) {
+          feedbackEl.innerHTML = `<span style="color: #f87171;">❌ Network error: ${err.message}</span>`;
+        }
+      } finally {
+        btnTrigger.disabled = false;
+        btnTrigger.textContent = "⚡ Launch Upload Now (GitHub)";
+      }
+    });
+  }
+
+  if (btnRefreshRuns) {
+    btnRefreshRuns.addEventListener("click", loadYtWorkflowRuns);
+  }
+}
+
+async function loadYtUploaderConfig() {
+  try {
+    const res = await fetch("/api/youtube-uploader/config");
+    const cfg = await res.json();
+    if (!cfg) return;
+
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined && val !== null) el.value = val;
+    };
+
+    setVal("inputYtRepo", cfg.github_repo || "sciencefiction879-cmyk/youtube-automation-with-github");
+    setVal("inputYtWorkflow", cfg.workflow_file || "upload.yml");
+    setVal("inputYtBranch", cfg.branch || "main");
+    setVal("inputYtToken", cfg.custom_token || "");
+    setVal("inputYtMegaUrl", cfg.mega_folder_url || "");
+    setVal("inputYtSlot1", cfg.slot1_time_pkt || "19:00");
+    setVal("inputYtSlot2", cfg.slot2_time_pkt || "22:00");
+    setVal("inputYtChannelName", cfg.channel_name || "");
+    setVal("inputYtChannelEmail", cfg.channel_email || "");
+    setVal("selectYtPrivacy", cfg.default_privacy || "public");
+    setVal("inputYtTags", (cfg.tags || []).join(", "));
+    setVal("inputYtFooter", cfg.description_footer || "");
+
+    const lblRepo = document.getElementById("lblYtRepo");
+    if (lblRepo) lblRepo.textContent = cfg.github_repo || "Not set";
+
+    const linkActions = document.getElementById("btnOpenYtActions");
+    if (linkActions && cfg.github_repo) {
+      linkActions.href = `https://github.com/${cfg.github_repo}/actions`;
+    }
+
+    // Check initial connection status
+    fetch("/api/youtube-uploader/verify-github", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo: cfg.github_repo, token: cfg.custom_token })
+    }).then(r => r.json()).then(updateYtConnectionUI).catch(() => {});
+
+    loadYtWorkflowRuns();
+  } catch (err) {
+    console.warn("Failed to load uploader config:", err);
+  }
+}
+
+function updateYtConnectionUI(res) {
+  const dot = document.getElementById("ytConnStatusDot");
+  const txt = document.getElementById("ytConnStatusText");
+  const repo = document.getElementById("inputYtRepo")?.value?.trim() || "";
+
+  if (res && res.success) {
+    if (dot) {
+      dot.style.background = "#10b981";
+      dot.style.boxShadow = "0 0 8px rgba(16, 185, 129, 0.6)";
+    }
+    if (txt) {
+      txt.textContent = `Connected: ${res.repo} (${res.private ? "Private" : "Public"}) • Dispatch Ready`;
+      txt.style.color = "#34d399";
+    }
+  } else {
+    if (dot) {
+      dot.style.background = "#f59e0b";
+      dot.style.boxShadow = "0 0 8px rgba(245, 158, 11, 0.6)";
+    }
+    if (txt) {
+      txt.textContent = res.error ? `GitHub Status: ${res.error}` : `Repository '${repo}' not verified yet`;
+      txt.style.color = "#fbbf24";
+    }
+  }
+}
+
+async function loadYtWorkflowRuns() {
+  const listEl = document.getElementById("ytWorkflowRunsList");
+  if (!listEl) return;
+
+  try {
+    const res = await fetch("/api/youtube-uploader/status");
+    const data = await res.json();
+
+    if (!data.success || !data.runs || data.runs.length === 0) {
+      listEl.innerHTML = `
+        <div style="padding: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); text-align: center; color: var(--text-muted); font-size: 12px;">
+          ${data.error ? "⚠️ " + data.error : "No workflow runs recorded yet. Click 'Launch Upload Now' above to trigger your first cloud upload run."}
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = data.runs.map(r => {
+      const isSuccess = r.conclusion === "success";
+      const isFailed = r.conclusion === "failure";
+      const isRunning = r.status === "in_progress" || r.status === "queued";
+
+      let statusBadge = `<span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(100,116,139,0.2); color: #94a3b8;">${r.status}</span>`;
+      if (isRunning) {
+        statusBadge = `<span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(14,165,233,0.2); color: #38bdf8; animation: pulse 1.5s infinite;">⚡ RUNNING</span>`;
+      } else if (isSuccess) {
+        statusBadge = `<span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(16,185,129,0.2); color: #34d399;">🟢 SUCCESS</span>`;
+      } else if (isFailed) {
+        statusBadge = `<span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(239,68,68,0.2); color: #f87171;">🔴 FAILED</span>`;
+      }
+
+      const dateStr = r.created_at ? new Date(r.created_at).toLocaleString() : "Recently";
+
+      return `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); font-size: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            ${statusBadge}
+            <div>
+              <div style="font-weight: 600; color: var(--text-primary);">
+                Run #${r.run_number || r.id}: ${r.name || "YouTube Sequential Uploader"}
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                Triggered by: ${r.actor || "GitHub Actions"} • ${dateStr}
+              </div>
+            </div>
+          </div>
+          <div>
+            <a href="${r.html_url}" target="_blank" class="btn-text" style="font-size: 11px; color: var(--accent-cyan); text-decoration: underline;">
+              View Logs ↗
+            </a>
+          </div>
+        </div>
+      `;
+    }).join("");
+  } catch (err) {
+    listEl.innerHTML = `
+      <div style="padding: 10px; color: var(--text-muted); font-size: 12px; text-align: center;">
+        Could not load runs: ${err.message}
+      </div>
+    `;
+  }
+}
