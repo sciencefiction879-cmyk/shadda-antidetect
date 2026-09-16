@@ -404,6 +404,10 @@ class ProfileHandler(BaseHTTPRequestHandler):
             mime_type, _ = mimetypes.guess_type(file_path)
             self.send_response(200)
             self.send_header('Content-Type', mime_type or 'application/octet-stream')
+            if req_path.endswith(('.html', '.js', '.css')):
+                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                self.send_header('Pragma', 'no-cache')
+                self.send_header('Expires', '0')
             with open(file_path, 'rb') as f:
                 content = f.read()
             self.send_header('Content-Length', str(len(content)))
@@ -647,11 +651,17 @@ class ProfileHandler(BaseHTTPRequestHandler):
 
         if path == '/api/cloud-sync/apply':
             incoming_profiles = body.get('profiles')
-            if not isinstance(incoming_profiles, list):
-                return self._send_json({'error': 'Profiles list is required'}, status=400)
+            if not isinstance(incoming_profiles, list) or len(incoming_profiles) == 0:
+                return self._send_json({'error': 'Non-empty profiles list is required'}, status=400)
             
-            # Save to local DB
-            save_db(incoming_profiles)
+            # Safely merge incoming profiles with existing local profiles by ID
+            existing = load_db()
+            existing_map = {p.get('id'): p for p in existing if p.get('id')}
+            for inc in incoming_profiles:
+                if isinstance(inc, dict) and inc.get('id'):
+                    existing_map[inc.get('id')] = inc
+            merged = list(existing_map.values())
+            save_db(merged)
             
             # Update lastSync timestamp
             cfg = load_cloud_sync_config()
@@ -659,7 +669,7 @@ class ProfileHandler(BaseHTTPRequestHandler):
             cfg['lastSync'] = now_ts
             save_cloud_sync_config(cfg)
             
-            return self._send_json({'success': True, 'count': len(incoming_profiles), 'lastSync': now_ts})
+            return self._send_json({'success': True, 'count': len(merged), 'lastSync': now_ts})
 
         if path == '/api/auth/register':
             username = (body.get('username') or '').strip()
@@ -863,6 +873,14 @@ def run_server():
 
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
+
+    if '--server-only' in sys.argv or '--headless' in sys.argv or os.environ.get('SERVER_ONLY') == '1':
+        print(f"[+] Running in background server mode on http://127.0.0.1:{PORT}")
+        try:
+            server_thread.join()
+        except KeyboardInterrupt:
+            server.server_close()
+        return
 
     # Launch Native Cocoa WebKit window via pywebview
     try:

@@ -87,6 +87,53 @@ def _init_default_pool():
     return proxies
 
 
+def sync_and_expand_pool(pool):
+    """Audits the pool to guarantee EVERY country has multiple proxies.
+    Strictly preserves existing proxies (Proxy #1 to #43) and appends new country
+    proxies sequentially starting from the next available number."""
+    if not isinstance(pool, list):
+        pool = []
+
+    seen_addresses = {f"{p.get('host')}:{p.get('port')}" for p in pool if p.get('host') and p.get('port')}
+    existing_numbers = [p.get('number', 0) for p in pool if isinstance(p.get('number'), int)]
+    next_num = max(existing_numbers, default=0) + 1
+    changed = False
+
+    for cc, c_meta in country_proxies.COUNTRIES.items():
+        seeds = country_proxies.FALLBACK_SEEDS.get(cc, [])
+        for s in seeds:
+            host = s.get('host')
+            port = s.get('port')
+            key = f"{host}:{port}"
+            if key not in seen_addresses:
+                seen_addresses.add(key)
+                proto = s.get('protocol', 'socks5')
+                pool.append({
+                    'id': f"proxy_{next_num}",
+                    'number': next_num,
+                    'label': f"Proxy #{next_num}",
+                    'formatted': f"{proto}://{host}:{port}",
+                    'host': host,
+                    'port': int(port),
+                    'protocol': proto,
+                    'countryCode': cc,
+                    'country': c_meta.get('name', cc),
+                    'flag': c_meta.get('flag', '🌐'),
+                    'city': s.get('city') or c_meta.get('city', ''),
+                    'timezone': c_meta.get('timezone', 'UTC'),
+                    'latencyMs': s.get('latencyMs', 150),
+                    'status': 'online',
+                    'addedAt': int(time.time()),
+                    'source': 'seed'
+                })
+                next_num += 1
+                changed = True
+
+    if changed:
+        save_pool(pool)
+    return pool
+
+
 def load_pool():
     if not os.path.exists(POOL_FILE):
         pool = _init_default_pool()
@@ -98,7 +145,9 @@ def load_pool():
             pool = json.load(f)
         if not pool or not isinstance(pool, list):
             pool = _init_default_pool()
-            save_pool(pool)
+        else:
+            pool = sync_and_expand_pool(pool)
+        save_pool(pool)
         return pool
     except Exception as e:
         print(f"[!] Error loading proxies pool from {POOL_FILE}: {e}")
@@ -112,6 +161,14 @@ def save_pool(pool):
     try:
         with open(POOL_FILE, 'w', encoding='utf-8') as f:
             json.dump(pool, f, indent=2, ensure_ascii=False)
+        # Also sync to Android assets if present
+        android_pool_path = os.path.join(BASE_DIR, 'android', 'app', 'src', 'main', 'assets', 'proxies_pool.json')
+        if os.path.exists(os.path.dirname(android_pool_path)):
+            try:
+                with open(android_pool_path, 'w', encoding='utf-8') as af:
+                    json.dump(pool, af, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
         return True
     except Exception as e:
         print(f"[!] Error saving proxies pool to {POOL_FILE}: {e}")

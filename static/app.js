@@ -15,7 +15,7 @@ function isAutoUpdateEnabled() {
   }
 }
 function isAndroidApp() {
-  return typeof window.AndroidBridge !== "undefined" || !!window.isAndroidApp || location.protocol === "file:";
+  return typeof window.AndroidBridge !== "undefined" || (location.protocol === "file:" && /Android/i.test(navigator.userAgent));
 }
 
 function setAutoUpdateEnabled(on) {
@@ -42,16 +42,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  try { await loadUserAgents(); } catch (e) { console.warn("loadUserAgents:", e); }
-  try { await loadGithubAccounts(); } catch (e) { console.warn("loadGithubAccounts:", e); }
-  try { await loadCountryCatalog(); } catch (e) { console.warn("loadCountryCatalog:", e); }
-  try { await loadProfiles(); } catch (e) { console.warn("loadProfiles:", e); }
-  try { await loadAds(); } catch (e) { console.warn("loadAds:", e); }
+  // 1. Load profiles IMMEDIATELY so the dashboard never renders blank
+  try {
+    loadProfiles();
+  } catch (e) {
+    console.warn("Immediate loadProfiles error:", e);
+  }
+
+  // 2. Load auxiliary catalogs and configurations in parallel without blocking UI
+  Promise.allSettled([
+    loadUserAgents(),
+    loadGithubAccounts(),
+    loadCountryCatalog(),
+    loadAds(),
+    CloudSyncManager.init(),
+    AuthManager.init()
+  ]);
+
   try { setupEventListeners(); } catch (e) { console.warn("setupEventListeners:", e); }
   try { initBuiltInUpdater(); } catch (e) { console.warn("initBuiltInUpdater:", e); }
   try { initDonationFeature(); } catch (e) { console.warn("initDonationFeature:", e); }
-  try { await CloudSyncManager.init(); } catch (e) { console.warn("CloudSyncManager:", e); }
-  try { await AuthManager.init(); } catch (e) { console.warn("AuthManager:", e); }
   try { initYouTubeUploaderModule(); } catch (e) { console.warn("initYouTubeUploaderModule:", e); }
 
   // ── Admin detection: show Edit Wallets button only when admin panel is running ──
@@ -331,6 +341,17 @@ function updateCounts() {
   document.getElementById("countGithub").textContent = allProfiles.filter(p => p.proxyType === "github").length;
 }
 
+function resetActiveFilter() {
+  activeFilter = "all";
+  const searchInput = document.getElementById("searchInput");
+  if (searchInput) searchInput.value = "";
+  document.querySelectorAll(".pill[data-filter]").forEach(p => {
+    p.classList.toggle("active", p.dataset.filter === "all");
+  });
+  renderProfiles();
+}
+window.resetActiveFilter = resetActiveFilter;
+
 function renderProfiles() {
   const grid = document.getElementById("profilesGrid");
   const empty = document.getElementById("emptyState");
@@ -357,6 +378,24 @@ function renderProfiles() {
   if (filtered.length === 0) {
     grid.innerHTML = "";
     empty.style.display = "block";
+    if (allProfiles.length > 0) {
+      const filterLabel = activeFilter !== "all" ? `filter '${activeFilter}'` : `search '${search}'`;
+      empty.innerHTML = `
+        <div class="empty-icon" style="font-size: 32px; margin-bottom: 8px;">🔍</div>
+        <h3 style="font-size: 16px; margin-bottom: 6px;">No profiles match ${filterLabel}</h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">You have ${allProfiles.length} total saved profiles in your workspace.</p>
+        <button type="button" class="btn-primary" onclick="resetActiveFilter()" style="padding: 8px 18px; font-size: 13px; cursor: pointer;">
+          Show All Profiles (${allProfiles.length})
+        </button>
+      `;
+    } else {
+      empty.innerHTML = `
+        <div class="empty-icon" style="font-size: 32px; margin-bottom: 8px;">📁</div>
+        <h3 style="font-size: 16px; margin-bottom: 6px;">No profiles found</h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">Create your first isolated browser profile to get started.</p>
+        <button class="btn-primary" id="btnEmptyCreate" onclick="openCreateModal()" style="padding: 8px 18px; font-size: 13px; cursor: pointer;">+ Create Profile</button>
+      `;
+    }
     return;
   }
 
@@ -1742,8 +1781,10 @@ async function loadCountryCatalog() {
 function renderCountrySelectOptions() {
   const sel = document.getElementById("formCountrySelect");
   if (!sel || !allCountryCatalog || allCountryCatalog.length === 0) return;
-  const currentVal = sel.value || "PK";
-  sel.innerHTML = allCountryCatalog.map(c => `
+  const currentVal = sel.value || "ALL";
+  const totalCount = allCountryCatalog.reduce((sum, c) => sum + (c.availableCount || 0), 0);
+  const allOpt = `<option value="ALL" ${currentVal === 'ALL' ? 'selected' : ''}>🌐 All Countries (${totalCount} proxies)</option>`;
+  sel.innerHTML = allOpt + allCountryCatalog.map(c => `
     <option value="${c.code}" ${c.code === currentVal ? 'selected' : ''}>
       ${c.flag} ${c.name} (${c.availableCount} live)
     </option>
