@@ -87,8 +87,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Shadda Anti Detect v0.2' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.3' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Shadda Anti Detect v0.3' }}
           files: |
             dist/Shadda-Anti-Detect.exe
             dist/Shadda-Anti-Detect-Windows-x64.zip
@@ -143,8 +143,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Shadda Anti Detect v0.2' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.3' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Shadda Anti Detect v0.3' }}
           files: dist/Shadda-Anti-Detect.apk
           draft: false
           prerelease: false

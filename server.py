@@ -242,9 +242,59 @@ class ProfileHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self._send_json({'status': 'ok'})
 
+    def do_HEAD(self):
+        return self.do_GET()
+
     def do_GET(self):
         parsed_url = urlparse(self.path)
         path = parsed_url.path
+
+        if path in ('/download/apk', '/Shadda-Anti-Detect.apk', '/download/Shadda-Anti-Detect.apk'):
+            apk_candidates = [
+                os.path.join(BASE_DIR, 'dist', 'Shadda-Anti-Detect.apk'),
+                os.path.join(BASE_DIR, 'releases', 'Shadda-Anti-Detect.apk'),
+                os.path.join(DATA_DIR, 'Shadda-Anti-Detect.apk'),
+                os.path.join(BASE_DIR, 'Shadda-Anti-Detect.apk'),
+                os.path.join(BUNDLE_DIR, 'dist', 'Shadda-Anti-Detect.apk'),
+            ]
+            for ap in apk_candidates:
+                if os.path.exists(ap) and os.path.getsize(ap) > 1000000:
+                    try:
+                        with open(ap, 'rb') as f:
+                            data = f.read()
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'application/vnd.android.package-archive')
+                        self.send_header('Content-Disposition', 'attachment; filename="Shadda-Anti-Detect.apk"')
+                        self.send_header('Content-Length', str(len(data)))
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        self.end_headers()
+                        self.wfile.write(data)
+                        return
+                    except Exception:
+                        pass
+            self.send_response(302)
+            self.send_header('Location', 'https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.3/Shadda-Anti-Detect.apk')
+            self.end_headers()
+            return
+
+        if path == '/api/apk/info':
+            local_ip = "127.0.0.1"
+            try:
+                import socket
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+                s.close()
+            except Exception:
+                pass
+            return self._send_json({
+                'filename': 'Shadda-Anti-Detect.apk',
+                'directLocalUrl': f"http://{local_ip}:{PORT}/download/apk",
+                'githubReleaseUrl': 'https://github.com/sciencefiction879-cmyk/shadda-antidetect/releases/download/v0.3/Shadda-Anti-Detect.apk',
+                'rawGitUrl': 'https://raw.githubusercontent.com/sciencefiction879-cmyk/shadda-antidetect/main/dist/Shadda-Anti-Detect.apk',
+                'localIp': local_ip,
+                'port': PORT
+            })
 
         if path == '/api/proxies/pool':
             profiles = load_db()

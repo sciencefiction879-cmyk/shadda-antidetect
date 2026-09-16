@@ -20,3 +20,6 @@ dist/
 Thumbs.db
 *.log
 tunnel.log
+.gradle/
+android/.gradle/
+android/app/build/

@@ -14,6 +14,10 @@ function isAutoUpdateEnabled() {
     return true;
   }
 }
+function isAndroidApp() {
+  return typeof window.AndroidBridge !== "undefined" || !!window.isAndroidApp || location.protocol === "file:";
+}
+
 function setAutoUpdateEnabled(on) {
   try {
     localStorage.setItem("autoUpdateEnabled", on ? "true" : "false");
@@ -283,6 +287,22 @@ async function deleteGithubAccount(id, username) {
 // PROFILES
 // ==========================================
 async function loadProfiles() {
+  if (isAndroidApp()) {
+    if (typeof window.AndroidBridge !== "undefined" && typeof window.AndroidBridge.getProfiles === "function") {
+      try {
+        const raw = window.AndroidBridge.getProfiles();
+        allProfiles = JSON.parse(raw);
+      } catch (_) {
+        allProfiles = [];
+      }
+    } else {
+      const stored = localStorage.getItem("shadda_profiles");
+      allProfiles = stored ? JSON.parse(stored) : [];
+    }
+    renderProfiles();
+    updateCounts();
+    return;
+  }
   try {
     const res = await fetch("/api/profiles");
     allProfiles = await res.json();
@@ -290,6 +310,14 @@ async function loadProfiles() {
     updateCounts();
   } catch (err) {
     console.error("Failed to load profiles:", err);
+    const stored = localStorage.getItem("shadda_profiles");
+    if (stored) {
+      try {
+        allProfiles = JSON.parse(stored);
+        renderProfiles();
+        updateCounts();
+      } catch (_) {}
+    }
   }
 }
 
@@ -507,6 +535,18 @@ async function launchProfile(id, urlOverride, forceDirect, withAutomation) {
   }
   if (testBtn) testBtn.disabled = true;
 
+  if (isAndroidApp() && typeof window.AndroidBridge !== "undefined" && typeof window.AndroidBridge.launchProfile === "function") {
+    const launchData = { ...p };
+    if (urlOverride) launchData.startUrl = urlOverride;
+    window.AndroidBridge.launchProfile(JSON.stringify(launchData));
+    if (btn) {
+      btn.innerHTML = origText;
+      btn.disabled = false;
+    }
+    if (testBtn) testBtn.disabled = false;
+    return;
+  }
+
   try {
     const payload = {};
     if (urlOverride) payload.url = urlOverride;
@@ -601,6 +641,17 @@ async function deleteProfile(id) {
   const p = allProfiles.find(x => x.id === id);
   const name = p ? p.name : "this profile";
   if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+
+  if (isAndroidApp()) {
+    allProfiles = allProfiles.filter(x => x.id !== id);
+    if (typeof window.AndroidBridge !== "undefined" && typeof window.AndroidBridge.saveProfiles === "function") {
+      window.AndroidBridge.saveProfiles(JSON.stringify(allProfiles));
+    }
+    localStorage.setItem("shadda_profiles", JSON.stringify(allProfiles));
+    renderProfiles();
+    updateCounts();
+    return;
+  }
 
   try {
     await fetch(`/api/profiles/${id}`, { method: "DELETE" });
@@ -875,6 +926,54 @@ function setupEventListeners() {
   if (launchChoiceClose) {
     launchChoiceClose.addEventListener('click', () => {
       document.getElementById("launchChoiceModal").style.display = "none";
+    });
+  }
+
+  // APK Download Modal Listeners
+  const btnDownloadApkNav = document.getElementById("btnDownloadApkNav");
+  const apkDownloadModal = document.getElementById("apkDownloadModal");
+  const btnCloseApkModal = document.getElementById("btnCloseApkModal");
+  const btnCopyApkWifiUrl = document.getElementById("btnCopyApkWifiUrl");
+
+  if (btnDownloadApkNav && apkDownloadModal) {
+    btnDownloadApkNav.addEventListener("click", async () => {
+      apkDownloadModal.style.display = "flex";
+      try {
+        const res = await fetch("/api/apk/info");
+        if (res.ok) {
+          const info = await res.json();
+          const wifiInput = document.getElementById("apkLocalWifiUrl");
+          if (wifiInput && info.directLocalUrl) {
+            wifiInput.value = info.directLocalUrl;
+          }
+        }
+      } catch (_) {}
+    });
+  }
+
+  if (btnCloseApkModal && apkDownloadModal) {
+    btnCloseApkModal.addEventListener("click", () => {
+      apkDownloadModal.style.display = "none";
+    });
+    apkDownloadModal.addEventListener("click", (e) => {
+      if (e.target === apkDownloadModal) apkDownloadModal.style.display = "none";
+    });
+  }
+
+  if (btnCopyApkWifiUrl) {
+    btnCopyApkWifiUrl.addEventListener("click", () => {
+      const wifiInput = document.getElementById("apkLocalWifiUrl");
+      if (wifiInput) {
+        navigator.clipboard.writeText(wifiInput.value).then(() => {
+          btnCopyApkWifiUrl.textContent = "✅ Copied!";
+          setTimeout(() => { btnCopyApkWifiUrl.textContent = "📋 Copy"; }, 2000);
+        }).catch(() => {
+          wifiInput.select();
+          document.execCommand("copy");
+          btnCopyApkWifiUrl.textContent = "✅ Copied!";
+          setTimeout(() => { btnCopyApkWifiUrl.textContent = "📋 Copy"; }, 2000);
+        });
+      }
     });
   }
 
@@ -1288,6 +1387,33 @@ function setupEventListeners() {
     let newProfileId = null;
     const shouldAutoLaunch = document.getElementById("formAutoLaunch")?.checked || false;
 
+    if (isAndroidApp()) {
+      if (id) {
+        const idx = allProfiles.findIndex(x => x.id === id);
+        if (idx !== -1) allProfiles[idx] = { ...allProfiles[idx], ...payload };
+      } else {
+        const newId = 'profile_' + Math.random().toString(36).substring(2, 10);
+        newProfileId = newId;
+        payload.id = newId;
+        payload.createdAt = new Date().toISOString().split('T')[0];
+        allProfiles.push(payload);
+      }
+      if (typeof window.AndroidBridge !== "undefined" && typeof window.AndroidBridge.saveProfiles === "function") {
+        window.AndroidBridge.saveProfiles(JSON.stringify(allProfiles));
+      }
+      localStorage.setItem("shadda_profiles", JSON.stringify(allProfiles));
+      if (typeof window.AndroidBridge !== "undefined" && typeof window.AndroidBridge.showToast === "function") {
+        window.AndroidBridge.showToast("Profile saved successfully");
+      }
+      closeModal();
+      renderProfiles();
+      updateCounts();
+      if (newProfileId && shouldAutoLaunch) {
+        launchProfile(newProfileId);
+      }
+      return;
+    }
+
     if (id) {
       // Update
       await fetch(`/api/profiles/${id}`, {
@@ -1414,6 +1540,45 @@ async function loadMasterProxyPool(selectedProxyId = null, profileId = null) {
     }
   } catch (e) {
     console.error("Error loading master proxy pool:", e);
+    if (typeof window.AndroidBridge !== "undefined" && typeof window.AndroidBridge.getProxiesPool === "function") {
+      try {
+        const raw = window.AndroidBridge.getProxiesPool();
+        const basePool = JSON.parse(raw);
+        if (Array.isArray(basePool) && basePool.length > 0) {
+          cachedProxyPool = basePool.map(proxy => {
+            const assignedProf = allProfiles.find(prof => {
+              if (prof.assignedProxyId && prof.assignedProxyId === proxy.id) return true;
+              if (prof.assignedProxyNumber && prof.assignedProxyNumber === proxy.number) return true;
+              if (prof.countryProxy && (prof.countryProxy === proxy.formatted || prof.countryProxy.includes(proxy.host))) return true;
+              return false;
+            });
+            const item = { ...proxy };
+            if (assignedProf) {
+              item.isAssigned = true;
+              item.assignedToProfileId = assignedProf.id;
+              item.assignedToProfileName = assignedProf.name;
+              item.statusBadge = `Assigned to ${assignedProf.name}`;
+            } else {
+              item.isAssigned = false;
+              item.assignedToProfileId = null;
+              item.assignedToProfileName = null;
+              item.statusBadge = "Available";
+            }
+            return item;
+          });
+          if (countBadge) {
+            const availCount = cachedProxyPool.filter(p => !p.isAssigned).length;
+            countBadge.textContent = `${cachedProxyPool.length} Proxies (${availCount} Available)`;
+          }
+          renderProxyPoolTable();
+          if (currentSelectedProxyId) {
+            const p = cachedProxyPool.find(x => x.id === currentSelectedProxyId || String(x.number) === String(currentSelectedProxyId));
+            if (p) selectProxyFromMasterPool(p.id, false);
+          }
+          return;
+        }
+      } catch (_) {}
+    }
     if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 14px; color: #ef4444;">Error loading proxy pool: ${e.message}</td></tr>`;
   }
 }
